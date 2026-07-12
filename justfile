@@ -1,5 +1,8 @@
 # Gantry task runner. Requires: go, cargo, pnpm, buf, docker. See docs/ARCHITECTURE.md.
 set shell := ["bash", "-c"]
+# Windows has multiple bash.exe (WSL in System32, Git Bash, WindowsApps stub) and
+# `just` may resolve the wrong one — pin Git Bash explicitly.
+set windows-shell := ["C:/Program Files/Git/bin/bash.exe", "-c"]
 
 default:
     @just --list
@@ -19,7 +22,19 @@ build-rust:
     cd sdk && cargo build --workspace
 
 build-web:
-    cd apps/web && pnpm install --frozen-lockfile && pnpm build
+    pnpm install --frozen-lockfile && pnpm -r build
+
+# Build the web console and embed it into the Edge binary's UI dir.
+# Guarded so a missing web build can never empty the embed dir (go:embed would break).
+embed-ui: build-web
+    test -f apps/web/dist/index.html
+    rm -rf apps/edge/internal/ui/dist
+    cp -r apps/web/dist apps/edge/internal/ui/dist
+
+# Full release build of Edge with the real UI embedded.
+# Trailing slash lets go name the binary per-OS (edge vs edge.exe).
+edge-release: embed-ui
+    go build -o bin/ ./apps/edge/cmd/edge
 
 # Run all tests
 test: test-go test-rust test-web
@@ -31,7 +46,13 @@ test-rust:
     cd sdk && cargo test --workspace
 
 test-web:
-    cd apps/web && pnpm test
+    pnpm -r test
+
+typecheck-web:
+    pnpm -r exec tsc --noEmit
+
+lint-rust:
+    cd sdk && cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check
 
 # Run the Edge binary (dev)
 edge:
@@ -43,7 +64,7 @@ web:
 
 # Run the Rust demo emitter against a local Edge
 demo-emitter:
-    cd sdk && cargo run --example simulator
+    cd sdk && cargo run -p gantry-connect --example simulator
 
 # Local backend infra (NATS, ClickHouse, Postgres, MinIO)
 compose-up:
@@ -51,3 +72,10 @@ compose-up:
 
 compose-down:
     docker compose -f deploy/docker-compose.yml down
+
+compose-logs:
+    docker compose -f deploy/docker-compose.yml logs -f
+
+# Reset local backend infra INCLUDING volumes
+compose-nuke:
+    docker compose -f deploy/docker-compose.yml down -v

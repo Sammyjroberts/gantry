@@ -1,0 +1,21 @@
+[package]
+name = "gantry-connect"
+description = "Gantry Connect SDK core: transport-agnostic telemetry batching/buffering. No async runtime."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+gantry-connect-proto = { path = "../gantry-connect-proto", version = "0.1.0" }
+prost.workspace = true
+
+[dev-dependencies]
+# The simulator example ships against the default Connect/HTTP transport.
+gantry-transport-http = { path = "../gantry-transport-http", version = "0.1.0" }
+ctrlc = "3"
+
+[[example]]
+name = "simulator"
+path = "examples/simulator.rs"

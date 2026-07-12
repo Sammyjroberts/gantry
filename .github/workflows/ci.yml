@@ -1,0 +1,163 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref (e.g. new push to a PR branch).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Detect which parts of the monorepo changed so language jobs only run when
+  # their inputs move. proto -> {go, web} because it regenerates their bindings.
+  # ---------------------------------------------------------------------------
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      proto: ${{ steps.filter.outputs.proto }}
+      go: ${{ steps.filter.outputs.go }}
+      rust: ${{ steps.filter.outputs.rust }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            proto:
+              - 'proto/**'
+              - 'buf.yaml'
+              - 'buf.gen.yaml'
+              - '.github/workflows/ci.yml'
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'gen/go/**'
+              - 'proto/**'
+              - '.github/workflows/ci.yml'
+            rust:
+              - 'sdk/**'
+              - 'proto/**'
+              - '.github/workflows/ci.yml'
+            web:
+              - 'apps/web/**'
+              - 'libs/ts/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/ci.yml'
+
+  # ---------------------------------------------------------------------------
+  # Proto: contracts are the single source of truth. Lint + format check.
+  # ---------------------------------------------------------------------------
+  proto:
+    needs: changes
+    if: needs.changes.outputs.proto == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ github.token }}
+      - name: buf lint
+        run: buf lint
+      - name: buf format check
+        run: buf format --diff --exit-code
+
+  # ---------------------------------------------------------------------------
+  # Go: shared engine (libs/go) + apps (edge, backend). Build, vet, test.
+  # ---------------------------------------------------------------------------
+  go:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go build
+        run: go build ./...
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        run: go test ./...
+
+  # ---------------------------------------------------------------------------
+  # Rust: the Connect SDK (cargo workspace in sdk/).
+  # ---------------------------------------------------------------------------
+  rust:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: sdk
+      - name: cargo fmt check
+        run: cargo fmt --all --check
+      - name: cargo build
+        run: cargo build --workspace
+      - name: cargo clippy
+        run: cargo clippy --workspace -- -D warnings
+      - name: cargo test
+        run: cargo test --workspace
+
+  # ---------------------------------------------------------------------------
+  # Web: TS/React console + shared TS packages (pnpm workspace).
+  # ---------------------------------------------------------------------------
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+      - name: pnpm build
+        run: pnpm -r build
+      - name: pnpm test
+        run: pnpm -r test
+
+  # ---------------------------------------------------------------------------
+  # Aggregate gate: a single required check that passes only if no needed job
+  # failed. Skipped (unchanged) jobs are OK; failed/cancelled ones are not.
+  # ---------------------------------------------------------------------------
+  ci:
+    needs: [proto, go, rust, web]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify no job failed
+        run: |
+          results='${{ needs.proto.result }} ${{ needs.go.result }} ${{ needs.rust.result }} ${{ needs.web.result }}'
+          echo "job results: $results"
+          for r in $results; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "A required job did not pass."
+              exit 1
+            fi
+          done
+          echo "All required jobs passed or were skipped."

@@ -1,0 +1,20 @@
+# Gantry Connect Rust SDK — its own cargo workspace root.
+# Native `cargo` must always work standalone (Bazel is additive per ARCHITECTURE.md).
+[workspace]
+resolver = "2"
+members = [
+    "gantry-connect-proto",
+    "gantry-connect",
+    "gantry-transport-http",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "Apache-2.0"
+repository = "https://github.com/gantry/gantry"
+
+[workspace.dependencies]
+prost = "0.13"
+prost-types = "0.13"

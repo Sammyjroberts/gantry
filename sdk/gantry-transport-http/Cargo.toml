@@ -1,0 +1,19 @@
+[package]
+name = "gantry-transport-http"
+description = "Connect/HTTP transport for the Gantry Connect SDK (ureq, no async runtime)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+gantry-connect = { path = "../gantry-connect", version = "0.1.0" }
+gantry-connect-proto = { path = "../gantry-connect-proto", version = "0.1.0" }
+prost.workspace = true
+# ureq is a blocking HTTP client — no tokio, firmware/bench friendly.
+ureq = "2"
+serde_json = "1"
+
+[dev-dependencies]
+tiny_http = "0.12"

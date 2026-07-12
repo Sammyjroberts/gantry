@@ -10,6 +10,12 @@ target/
 node_modules/
 dist/
 *.tsbuildinfo
+# ...but the Edge binary embeds a committed placeholder UI; the real web build
+# overwrites this dist/ at build time (see justfile: embed-ui). Only the
+# placeholder index.html is tracked; real build assets stay ignored.
+!apps/edge/internal/ui/dist/
+apps/edge/internal/ui/dist/*
+!apps/edge/internal/ui/dist/index.html
 
 # Bazel
 bazel-*
