@@ -73,6 +73,19 @@ compose-up:
 compose-down:
     docker compose -f deploy/docker-compose.yml down
 
+bazel-build:
+    bazelisk build //...
+
+bazel-test:
+    bazelisk test //...
+
+# Windows: use @gazelle//cmd/gazelle, not //:gazelle (sh_binary runner breaks on Windows)
+bazel-gazelle:
+    bazelisk run @gazelle//cmd/gazelle
+
+bazel-tidy:
+    bazelisk mod tidy
+
 compose-logs:
     docker compose -f deploy/docker-compose.yml logs -f
 

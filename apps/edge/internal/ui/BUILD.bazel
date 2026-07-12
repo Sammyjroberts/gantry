@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "ui",
+    srcs = ["embed.go"],
+    embedsrcs = ["dist/index.html"],
+    importpath = "github.com/Sammyjroberts/gantry/apps/edge/internal/ui",
+    visibility = ["//apps/edge:__subpackages__"],
+)

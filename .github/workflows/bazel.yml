@@ -1,0 +1,68 @@
+name: Bazel
+
+# Additive Bazel build/test for the Go + committed-proto graph. The native
+# toolchain CI (ci.yml) remains the source of truth; this proves the Bazel graph
+# stays green. Path-filtered to the inputs Bazel actually consumes.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'gen/go/**'
+      - 'proto/**'
+      - '**/BUILD.bazel'
+      - 'MODULE.bazel'
+      - 'MODULE.bazel.lock'
+      - '.bazelrc'
+      - '.bazelversion'
+      - '.bazelignore'
+      - '.github/workflows/bazel.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'gen/go/**'
+      - 'proto/**'
+      - '**/BUILD.bazel'
+      - 'MODULE.bazel'
+      - 'MODULE.bazel.lock'
+      - '.bazelrc'
+      - '.bazelversion'
+      - '.bazelignore'
+      - '.github/workflows/bazel.yml'
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: bazel-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  bazel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Cache Bazel's repository cache and disk cache. bazelisk is preinstalled
+      # on GitHub-hosted runners and reads .bazelversion to fetch Bazel 8.3.1.
+      - name: Cache Bazel
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/bazel
+            ~/.cache/bazelisk
+          key: bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel.lock', 'MODULE.bazel', 'go.sum', '.bazelversion') }}
+          restore-keys: |
+            bazel-${{ runner.os }}-
+
+      - name: Bazel build
+        run: bazel build //... --config=ci
+
+      - name: Bazel test
+        run: bazel test //... --config=ci

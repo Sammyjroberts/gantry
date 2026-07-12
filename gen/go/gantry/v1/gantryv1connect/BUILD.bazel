@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "gantryv1connect",
+    srcs = [
+        "ingest.connect.go",
+        "live.connect.go",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/gen/go/gantry/v1/gantryv1connect",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//gen/go/gantry/v1:gantry",
+        "@com_connectrpc_connect//:go_default_library",
+    ],
+)

@@ -1,0 +1,2 @@
+# A scratch Python virtualenv that must never be part of any Bazel package graph.
+test_eav

@@ -1,0 +1,18 @@
+load("@gazelle//:def.bzl", "gazelle")
+
+# gazelle:prefix github.com/Sammyjroberts/gantry
+# gazelle:exclude test_eav
+# gazelle:exclude sdk
+# gazelle:exclude bazel-out
+
+# v1 deliberately does NOT wire protoc/buf into the Bazel build. buf is the
+# source of truth and the generated Go bindings under gen/go are committed and
+# consumed as plain Go source. `disable_global` stops gazelle from emitting
+# proto_library / go_proto_library rules for the .proto files. See docs/BAZEL.md.
+# gazelle:proto disable_global
+
+# Run `bazel run //:gazelle` to (re)generate Go BUILD files.
+gazelle(name = "gazelle")
+
+# Run `bazel run //:gazelle-update-repos` is not needed under bzlmod;
+# use `bazel mod tidy` to sync the go_deps use_repo list in MODULE.bazel.

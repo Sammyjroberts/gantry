@@ -1,0 +1,35 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "server",
+    srcs = [
+        "cors.go",
+        "handlers.go",
+        "server.go",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/apps/edge/internal/server",
+    visibility = ["//apps/edge:__subpackages__"],
+    deps = [
+        "//apps/edge/internal/ui",
+        "//gen/go/gantry/v1:gantry",
+        "//gen/go/gantry/v1/gantryv1connect",
+        "//libs/go/ingest",
+        "//libs/go/registry",
+        "//libs/go/stream",
+        "@com_connectrpc_connect//:go_default_library",
+        "@org_golang_x_net//http2:go_default_library",
+        "@org_golang_x_net//http2/h2c:go_default_library",
+    ],
+)
+
+go_test(
+    name = "server_test",
+    srcs = ["e2e_test.go"],
+    deps = [
+        ":server",
+        "//gen/go/gantry/v1:gantry",
+        "//gen/go/gantry/v1/gantryv1connect",
+        "@com_connectrpc_connect//:go_default_library",
+        "@org_golang_x_net//http2:go_default_library",
+    ],
+)

@@ -1,0 +1,25 @@
+# Gantry Bazel configuration.
+# See docs/BAZEL.md for what is (and isn't) wired.
+
+# bzlmod is the dependency system (default on Bazel 7+, explicit for clarity).
+common --enable_bzlmod
+
+# Show full output for failing tests instead of just a summary line.
+test --test_output=errors
+
+# Don't let stale local test results hide real failures in a monorepo.
+test --test_verbose_timeout_warnings
+
+# --- Windows compatibility --------------------------------------------------
+# Avoid long-path / symlink issues and keep runfiles behaviour consistent.
+startup --windows_enable_symlinks
+common --enable_runfiles
+
+# --- CI ---------------------------------------------------------------------
+# Usage: bazel build //... --config=ci
+build:ci --show_timestamps
+build:ci --verbose_failures
+build:ci --color=yes
+test:ci --test_output=errors
+test:ci --keep_going
+test:ci --show_timestamps

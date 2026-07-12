@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "ingest",
+    srcs = ["ingest.go"],
+    importpath = "github.com/Sammyjroberts/gantry/libs/go/ingest",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//gen/go/gantry/v1:gantry",
+        "//libs/go/registry",
+        "//libs/go/stream",
+    ],
+)
+
+go_test(
+    name = "ingest_test",
+    srcs = ["ingest_test.go"],
+    embed = [":ingest"],
+    deps = [
+        "//gen/go/gantry/v1:gantry",
+        "//libs/go/registry",
+    ],
+)
