@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package gantry.v1;
+
+// The kind of value a channel carries.
+enum ValueKind {
+  VALUE_KIND_UNSPECIFIED = 0;
+  VALUE_KIND_F64 = 1;
+  VALUE_KIND_I64 = 2;
+  VALUE_KIND_BOOL = 3;
+  VALUE_KIND_TEXT = 4;
+  VALUE_KIND_RAW = 5;
+}
+
+// A single telemetry value. Kept as a oneof so constrained emitters pay only
+// for what they send.
+message Value {
+  oneof kind {
+    double f64 = 1;
+    sint64 i64 = 2;
+    bool flag = 3;
+    string text = 4;
+    bytes raw = 5;
+  }
+}
+
+// One sample on one channel at one instant.
+message Frame {
+  // Canonical channel name, e.g. "drive.motor_left.current_a".
+  // Dot-separated lowercase tokens by convention.
+  string channel = 1;
+  // Nanoseconds since Unix epoch, as stamped by the emitter.
+  fixed64 timestamp_ns = 2;
+  Value value = 3;
+}
+
+// The unit of transmission: a batch of frames from one device.
+message FrameBatch {
+  // Stable identifier of the emitting device/process.
+  string device_id = 1;
+  // Monotonically increasing per-device batch sequence number, for dedup and
+  // gap detection across lossy links.
+  uint64 sequence = 2;
+  repeated Frame frames = 3;
+}
+
+// Channel metadata, registered ahead of or alongside data.
+message ChannelInfo {
+  string name = 1;
+  ValueKind kind = 2;
+  // Unit string, e.g. "A", "m/s", "degC". Free-form but conventional.
+  string unit = 3;
+  string description = 4;
+}

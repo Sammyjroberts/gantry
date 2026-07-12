@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package gantry.v1;
+
+import "gantry/v1/telemetry.proto";
+
+// Live telemetry for UIs. Backed by JetStream replay: a subscribe with
+// replay_seconds > 0 first replays the recent window from the stream, then
+// continues live — this is the hot-read path (no cache, no DB).
+service LiveService {
+  // Server-streaming live feed of frames for selected channels.
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+
+  // Enumerate known devices and channels.
+  rpc ListChannels(ListChannelsRequest) returns (ListChannelsResponse);
+}
+
+message SubscribeRequest {
+  // Device to subscribe to. Empty means all devices.
+  string device_id = 1;
+  // Channel names to include. Empty means all channels.
+  repeated string channels = 2;
+  // Replay this many seconds of history from the stream before going live.
+  // 0 means live-only from now.
+  uint32 replay_seconds = 3;
+}
+
+message SubscribeResponse {
+  repeated Frame frames = 1;
+}
+
+message ListChannelsRequest {
+  string device_id = 1;
+}
+
+message DeviceChannels {
+  string device_id = 1;
+  repeated ChannelInfo channels = 2;
+}
+
+message ListChannelsResponse {
+  repeated DeviceChannels devices = 1;
+}

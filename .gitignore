@@ -1,0 +1,32 @@
+# Go
+*.exe
+*.test
+*.out
+
+# Rust
+target/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Bazel
+bazel-*
+MODULE.bazel.lock
+
+# Buf/codegen — gen/ is committed (single source of truth is proto/, but we commit
+# generated code so plain `go build` works without buf installed)
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Local data
+*.db
+*.sqlite
+data/
+.env
+.env.local

@@ -1,0 +1,20 @@
+version: v2
+clean: false
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/Sammyjroberts/gantry/gen/go
+plugins:
+  # Go message types
+  - remote: buf.build/protocolbuffers/go
+    out: gen/go
+    opt: paths=source_relative
+  # Go ConnectRPC services
+  - remote: buf.build/connectrpc/go
+    out: gen/go
+    opt: paths=source_relative
+  # TypeScript (protobuf-es v2 — includes service descriptors for connect-es v2)
+  - remote: buf.build/bufbuild/es
+    out: libs/ts/api-client/src/gen
+    opt: target=ts
