@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createLiveClient } from "@gantry/api-client";
 import type { TimeSeriesStore } from "@gantry/timeseries";
 import { frameNumeric } from "./valueKind";
+import { channelKey } from "./channel";
 
 export type ConnState = "idle" | "connecting" | "live" | "reconnecting" | "error";
 
@@ -47,6 +48,17 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
  *   (250ms → 5s cap). A successful data frame resets the backoff.
  * - The connection is independent of chart pause: it keeps buffering so resume
  *   is seamless.
+ *
+ * Keepalive contract (live.proto): the server sends a SubscribeResponse with
+ * zero frames immediately on a successful subscribe (stream-open signal) and
+ * may repeat empty responses as heartbeats. Any response — empty included — is
+ * proof the stream is open, so it marks the connection LIVE and resets backoff.
+ * Empty responses carry no data and never touch the store.
+ *
+ * Frames are keyed by (packet, name) — see channel.ts. The request is routed by
+ * channel NAME, so a subscription to "temp" returns frames from every packet
+ * that exposes "temp"; re-keying on (packet, name) keeps imu.temp and
+ * power.temp in separate buffers.
  */
 export function useLiveStream(args: UseLiveStreamArgs): LiveStreamStatus {
   const { baseUrl, store, deviceId, channels, replaySeconds } = args;
@@ -98,12 +110,16 @@ export function useLiveStream(args: UseLiveStreamArgs): LiveStreamStatus {
           );
           for await (const resp of stream) {
             if (stopped) break;
+            // Any response (incl. the empty stream-open / keepalive) means the
+            // stream is healthy: mark live and reset backoff.
             setConn("live");
             backoff = 250;
             frameCounter.current += resp.frames.length;
             for (const f of resp.frames) {
               const v = frameNumeric(f);
-              if (v !== null) store.append(f.channel, f.timestampNs, v);
+              if (v !== null) {
+                store.append(channelKey(f.packet, f.channel), f.timestampNs, v);
+              }
             }
           }
           // Clean server close: fall through, back off, re-subscribe (re-replay).

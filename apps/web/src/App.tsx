@@ -11,6 +11,14 @@ import { ChannelPicker } from "./components/ChannelPicker";
 import { StatusBar } from "./components/StatusBar";
 import { Chart } from "./components/Chart";
 import { formatValue, isBoolKind, isPlottable } from "./valueKind";
+import {
+  channelKey,
+  channelLabel,
+  infoKey,
+  parseKey,
+  subscribeNames,
+  type ChannelId,
+} from "./channel";
 
 const CURSOR_SYNC_KEY = "gantry-cursor";
 
@@ -30,6 +38,8 @@ interface ChannelMeta {
   unit: string;
   kind: ValueKind;
   device: string;
+  packet: string;
+  name: string;
 }
 
 export function App() {
@@ -41,6 +51,8 @@ export function App() {
 
   const [devices, setDevices] = useState<DeviceChannels[]>([]);
   const [listError, setListError] = useState<string | null>(null);
+  // Selection keyed by (packet, name) — see channel.ts. Name-only keys would
+  // collide packet-siblings (imu.temp vs power.temp).
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [windowSec, setWindowSec] = useState<number>(60);
   const [paused, setPaused] = useState(false);
@@ -50,11 +62,21 @@ export function App() {
     const m = new Map<string, ChannelMeta>();
     for (const d of devices) {
       for (const c of d.channels) {
-        m.set(c.name, { unit: c.unit, kind: c.kind, device: d.deviceId });
+        m.set(infoKey(c), {
+          unit: c.unit,
+          kind: c.kind,
+          device: d.deviceId,
+          packet: c.packet,
+          name: c.name,
+        });
       }
     }
     return m;
   }, [devices]);
+
+  // Label a series with its device only when the catalogue spans >1 device, so
+  // multi-device subscriptions stay attributable (frames carry device_id).
+  const multiDevice = devices.length > 1;
 
   // Load the channel catalogue on mount.
   useEffect(() => {
@@ -71,13 +93,16 @@ export function App() {
     return () => ac.abort();
   }, [baseUrl]);
 
+  // Selected identities (keys) vs. the distinct channel NAMES sent on the wire.
+  // The server routes by name; frames are re-keyed by (packet, name) client-side.
   const selectedList = useMemo(() => [...selected], [selected]);
+  const subscribeChannels = useMemo(() => subscribeNames(selected), [selected]);
 
   const status = useLiveStream({
     baseUrl,
     store,
     deviceId: "",
-    channels: selectedList,
+    channels: subscribeChannels,
     replaySeconds: REPLAY_SECONDS,
   });
 
@@ -88,11 +113,12 @@ export function App() {
     return () => clearInterval(id);
   }, [paused]);
 
-  const toggle = (name: string) => {
+  const toggle = (id: ChannelId) => {
+    const key = channelKey(id.packet, id.name);
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
@@ -103,8 +129,9 @@ export function App() {
   const fromNs = nowNs - windowNs;
   const xRange: [number, number] = [Number(fromNs) / 1e9, Number(nowNs) / 1e9];
 
-  const plotChannels = selectedList.filter((c) => {
-    const meta = metaByChannel.get(c);
+  // Selected keys that get a chart (numeric/bool kinds). Keys are (packet, name).
+  const plotChannels = selectedList.filter((key) => {
+    const meta = metaByChannel.get(key);
     return meta ? isPlottable(meta.kind) : true; // unknown kind -> assume numeric
   });
 
@@ -154,18 +181,27 @@ export function App() {
               Select channels from the sidebar to begin streaming.
             </div>
           )}
-          {plotChannels.map((name, i) => {
-            const meta = metaByChannel.get(name);
+          {plotChannels.map((key, i) => {
+            const meta = metaByChannel.get(key);
             const kind = meta?.kind ?? ValueKind.F64;
             const boolean = isBoolKind(kind);
-            const { x, y } = store.window(name, fromNs, nowNs);
-            const latest = store.get(name)?.latest() ?? null;
+            const { x, y } = store.window(key, fromNs, nowNs);
+            const latest = store.get(key)?.latest() ?? null;
             const color = PALETTE[i % PALETTE.length]!;
+            // Display: "packet.name" (or bare name for ad-hoc), from the key if
+            // the channel is not in the catalogue. Prefix device when the
+            // catalogue spans multiple devices.
+            const id = meta ?? parseKey(key);
+            const title = channelLabel(id.packet, id.name);
+            const device = meta?.device ?? "";
             return (
-              <section className="chart-row" key={name}>
+              <section className="chart-row" key={key}>
                 <div className="chart-header">
                   <span className="chart-title" style={{ color }}>
-                    {name}
+                    {multiDevice && device && (
+                      <span className="chart-device">{device}</span>
+                    )}
+                    {title}
                   </span>
                   <span className="chart-readout">
                     <span className="readout-val">

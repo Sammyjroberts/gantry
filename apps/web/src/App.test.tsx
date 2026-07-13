@@ -14,8 +14,13 @@ vi.mock("@gantry/api-client", async (importOriginal) => {
           {
             deviceId: "rover-01",
             channels: [
-              { name: "drive.motor_left.current_a", kind: actual.ValueKind.F64, unit: "A", description: "" },
-              { name: "drive.estop", kind: actual.ValueKind.BOOL, unit: "", description: "" },
+              // Collision case: two packets expose the same param name "temp"
+              // with different kinds. (packet, name) keying keeps them distinct.
+              { name: "temp", kind: actual.ValueKind.F64, unit: "degC", description: "", packet: "imu" },
+              { name: "temp", kind: actual.ValueKind.I64, unit: "degC", description: "", packet: "power" },
+              { name: "current_a", kind: actual.ValueKind.F64, unit: "A", description: "", packet: "drive" },
+              // Ad-hoc channel (empty packet) -> "ad hoc" bucket.
+              { name: "drive.estop", kind: actual.ValueKind.BOOL, unit: "", description: "", packet: "" },
             ],
           },
         ],
@@ -31,7 +36,7 @@ vi.mock("@gantry/api-client", async (importOriginal) => {
 afterEach(() => cleanup());
 
 describe("App", () => {
-  it("renders the console shell and the channel catalogue", async () => {
+  it("renders the console shell and the grouped channel catalogue", async () => {
     const { App } = await import("./App");
     render(<App />);
 
@@ -39,9 +44,16 @@ describe("App", () => {
     expect(screen.getByText("GANTRY")).toBeTruthy();
     expect(screen.getByText(/select channels/i)).toBeTruthy();
 
-    // Channels arrive from the (mocked) ListChannels call.
-    expect(await screen.findByText("drive.motor_left.current_a")).toBeTruthy();
-    expect(await screen.findByText("drive.estop")).toBeTruthy();
+    // Packet groups arrive from the (mocked) ListChannels call.
+    expect(await screen.findByText("imu")).toBeTruthy();
+    expect(await screen.findByText("power")).toBeTruthy();
+    expect(await screen.findByText("drive")).toBeTruthy();
+    expect(await screen.findByText("ad hoc")).toBeTruthy();
+
+    // The colliding param name "temp" appears once under each of its packets.
+    expect(screen.getAllByText("temp")).toHaveLength(2);
+    // Ad-hoc channel keeps its bare dotted name.
+    expect(screen.getByText("drive.estop")).toBeTruthy();
   });
 
   it("exposes the expected ValueKind enum", () => {

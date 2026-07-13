@@ -152,6 +152,55 @@ body {
   letter-spacing: 0.06em;
   border-top: 1px solid var(--border);
 }
+/* packet groups (device → packet → params) */
+.packet-group {
+  margin: 0;
+}
+.packet-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-align: left;
+  padding: 4px 12px 3px 18px;
+  cursor: pointer;
+}
+.packet-head:hover {
+  background: rgba(79, 209, 197, 0.06);
+}
+.packet-caret {
+  color: var(--muted);
+  font-size: 9px;
+  width: 10px;
+}
+.packet-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.packet-adhoc .packet-name {
+  font-style: italic;
+  text-transform: none;
+}
+.packet-count {
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 6px;
+}
+
 .channel-list {
   list-style: none;
   margin: 0;
@@ -162,7 +211,7 @@ body {
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 8px;
-  padding: 3px 12px;
+  padding: 3px 12px 3px 30px;
   cursor: pointer;
 }
 .channel-list label:hover {
@@ -228,6 +277,15 @@ body {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+.chart-device {
+  color: var(--muted);
+  font-weight: 400;
+  margin-right: 6px;
+}
+.chart-device::after {
+  content: "·";
+  margin-left: 6px;
 }
 .chart-readout {
   display: inline-flex;
