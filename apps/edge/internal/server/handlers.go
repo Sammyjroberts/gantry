@@ -67,10 +67,13 @@ func (s *liveService) Subscribe(ctx context.Context, req *connect.Request[gantry
 		return connect.NewError(connect.CodeUnavailable, err)
 	}
 
-	// Flush response headers immediately by sending an empty response, so the
-	// client's stream opens right away instead of blocking until the first
-	// frame. Without this a live-only subscription (no replay, no data yet)
-	// would deadlock: the client waits for headers, the server waits for data.
+	// Stream-open contract (live.proto SubscribeResponse): the server sends one
+	// SubscribeResponse with zero frames immediately on successful subscription.
+	// This doubles as flushing response headers so the client's stream opens
+	// right away instead of blocking until the first frame — without it a
+	// live-only subscription (no replay, no data yet) would deadlock: the client
+	// waits for headers, the server waits for data. Clients treat empty responses
+	// as keepalives, not data.
 	if err := out.Send(&gantryv1.SubscribeResponse{}); err != nil {
 		return err
 	}
@@ -97,6 +100,12 @@ func (s *liveService) Subscribe(ctx context.Context, req *connect.Request[gantry
 				_ = flush()
 				return nil
 			}
+			// Stamp the source device on every outbound frame (telemetry.proto
+			// Frame.device_id: "Populated by the SERVER on outbound live
+			// streams"). The device is recovered from the stored batch, not the
+			// subject, so multi-device subscriptions stay attributable even
+			// though emitters leave Frame.device_id empty on ingest.
+			d.Frame.DeviceId = d.DeviceID
 			buf = append(buf, d.Frame)
 			if len(buf) >= liveMaxBatch {
 				if err := flush(); err != nil {

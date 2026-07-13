@@ -77,6 +77,29 @@ func TestPublishBatchAcksSequence(t *testing.T) {
 	}
 }
 
+func TestPublishBatchDeviceIDBatchWins(t *testing.T) {
+	pub := &fakePub{}
+	e := New(pub, registry.New())
+	// Frames arrive with a device_id that disagrees with the batch (and one
+	// empty). The batch's device_id is authoritative: both must be overwritten,
+	// no error.
+	f1 := goodFrame("a")
+	f1.DeviceId = "wrong-device"
+	f2 := goodFrame("b") // empty device_id
+	batch := &gantryv1.FrameBatch{DeviceId: "rover-1", Sequence: 1, Frames: []*gantryv1.Frame{f1, f2}}
+	if _, err := e.PublishBatch(context.Background(), batch); err != nil {
+		t.Fatalf("PublishBatch: %v", err)
+	}
+	if len(pub.batches) != 1 {
+		t.Fatalf("published %d batches, want 1", len(pub.batches))
+	}
+	for i, f := range pub.batches[0].Frames {
+		if f.DeviceId != "rover-1" {
+			t.Errorf("frame %d device_id = %q, want rover-1 (batch wins)", i, f.DeviceId)
+		}
+	}
+}
+
 func TestPublishBatchRejectsInvalid(t *testing.T) {
 	pub := &fakePub{}
 	e := New(pub, registry.New())

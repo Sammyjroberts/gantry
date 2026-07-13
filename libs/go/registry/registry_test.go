@@ -88,6 +88,75 @@ func TestRegisterFillsThenObserveKeeps(t *testing.T) {
 	}
 }
 
+// f64p / i64p build packet-tagged frames.
+func f64p(packet, c string, v float64) *gantryv1.Frame {
+	f := f64(c, v)
+	f.Packet = packet
+	return f
+}
+func i64p(packet, c string, v int64) *gantryv1.Frame {
+	f := i64(c, v)
+	f.Packet = packet
+	return f
+}
+
+// TestPacketScopedKindConflict proves the (packet, name) keying makes it legal
+// for two packets to each carry a param named "temp" with a different kind.
+// Keyed on name alone these would collide; keyed on (packet, name) they coexist.
+func TestPacketScopedKindConflict(t *testing.T) {
+	r := New()
+	r.ObserveBatch(&gantryv1.FrameBatch{
+		DeviceId: "dev1",
+		Frames: []*gantryv1.Frame{
+			f64p("imu", "temp", 36.6), // imu.temp is a float
+			i64p("power", "temp", 42), // power.temp is an int
+		},
+	})
+
+	got := r.List("dev1")
+	if len(got) != 1 {
+		t.Fatalf("want 1 device, got %d", len(got))
+	}
+	byKey := map[chanKey]gantryv1.ValueKind{}
+	for _, ci := range got[0].Channels {
+		byKey[chanKey{packet: ci.Packet, name: ci.Name}] = ci.Kind
+	}
+	if len(byKey) != 2 {
+		t.Fatalf("want 2 distinct (packet,name) channels, got %d: %+v", len(byKey), byKey)
+	}
+	if byKey[chanKey{"imu", "temp"}] != gantryv1.ValueKind_VALUE_KIND_F64 {
+		t.Errorf("imu.temp kind = %v, want F64", byKey[chanKey{"imu", "temp"}])
+	}
+	if byKey[chanKey{"power", "temp"}] != gantryv1.ValueKind_VALUE_KIND_I64 {
+		t.Errorf("power.temp kind = %v, want I64", byKey[chanKey{"power", "temp"}])
+	}
+
+	// Explicit registration on one packet must not disturb the other's identity.
+	r.Register("dev1", []*gantryv1.ChannelInfo{
+		{Name: "temp", Packet: "imu", Kind: gantryv1.ValueKind_VALUE_KIND_F64, Unit: "degC"},
+	})
+	got = r.List("dev1")
+	byKey = map[chanKey]gantryv1.ValueKind{}
+	units := map[chanKey]string{}
+	for _, ci := range got[0].Channels {
+		k := chanKey{packet: ci.Packet, name: ci.Name}
+		byKey[k] = ci.Kind
+		units[k] = ci.Unit
+	}
+	if len(byKey) != 2 {
+		t.Fatalf("register collapsed packets: %+v", byKey)
+	}
+	if units[chanKey{"imu", "temp"}] != "degC" {
+		t.Errorf("imu.temp unit = %q, want degC", units[chanKey{"imu", "temp"}])
+	}
+	if units[chanKey{"power", "temp"}] != "" {
+		t.Errorf("power.temp unit = %q, want empty (untouched)", units[chanKey{"power", "temp"}])
+	}
+	if byKey[chanKey{"power", "temp"}] != gantryv1.ValueKind_VALUE_KIND_I64 {
+		t.Errorf("power.temp kind changed to %v, want I64", byKey[chanKey{"power", "temp"}])
+	}
+}
+
 func TestConcurrentAutoRegistration(t *testing.T) {
 	r := New()
 	const goroutines = 16

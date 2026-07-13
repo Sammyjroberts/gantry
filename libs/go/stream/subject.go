@@ -50,6 +50,13 @@ func SanitizeToken(tok string) string {
 
 // Subject returns the routing subject for a (deviceID, channel) pair:
 // "tlm.<device>.<channel>", each token sanitized.
+//
+// Packet is deliberately NOT a subject token. Packets are storage/registry
+// identity ((packet, param) — telemetry.proto), but routing stays channel-based:
+// a subscriber selects by channel name and receives that param regardless of
+// which packet it belongs to, and adding a packet token would fan subscriptions
+// out per packet for no routing benefit. Packet travels inside the frame as
+// metadata; it is not needed to deliver the message.
 func Subject(deviceID, channel string) string {
 	return SubjectPrefix + "." + SanitizeToken(deviceID) + "." + SanitizeToken(channel)
 }

@@ -1,8 +1,10 @@
-// Package registry is a concurrency-safe channel registry: device -> channels.
-// It is populated two ways, merged: explicit RegisterChannels metadata, and
-// auto-registration of previously unseen channels observed in ingested frames
-// (kind inferred from the value). This in-memory implementation is the
-// milestone-2 stand-in for the SQLite-backed registry that lands later.
+// Package registry is a concurrency-safe channel registry: device -> channels,
+// where a channel is identified by (packet, name) so distinct packets may carry
+// same-named params with different kinds. It is populated two ways, merged:
+// explicit RegisterChannels metadata, and auto-registration of previously unseen
+// channels observed in ingested frames (kind inferred from the value, packet
+// carried from the frame). This in-memory implementation is the milestone-2
+// stand-in for the SQLite-backed registry that lands later.
 package registry
 
 import (
@@ -13,16 +15,25 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// chanKey identifies a channel within a device by (packet, name). Packets are
+// first-class (telemetry.proto): two packets may each expose a param of the
+// same name with different kinds/units, so the packet is part of the identity —
+// keying on name alone would collide them.
+type chanKey struct {
+	packet string
+	name   string
+}
+
 // Registry holds channel metadata per device.
 type Registry struct {
 	mu sync.RWMutex
-	// device id -> channel name -> info
-	devices map[string]map[string]*gantryv1.ChannelInfo
+	// device id -> (packet, name) -> info
+	devices map[string]map[chanKey]*gantryv1.ChannelInfo
 }
 
 // New returns an empty registry.
 func New() *Registry {
-	return &Registry{devices: make(map[string]map[string]*gantryv1.ChannelInfo)}
+	return &Registry{devices: make(map[string]map[chanKey]*gantryv1.ChannelInfo)}
 }
 
 // Register merges explicit channel metadata for a device. Explicit fields win:
@@ -36,16 +47,17 @@ func (r *Registry) Register(deviceID string, channels []*gantryv1.ChannelInfo) {
 	defer r.mu.Unlock()
 	dev := r.devices[deviceID]
 	if dev == nil {
-		dev = make(map[string]*gantryv1.ChannelInfo)
+		dev = make(map[chanKey]*gantryv1.ChannelInfo)
 		r.devices[deviceID] = dev
 	}
 	for _, ci := range channels {
 		if ci == nil || ci.Name == "" {
 			continue
 		}
-		existing := dev[ci.Name]
+		key := chanKey{packet: ci.Packet, name: ci.Name}
+		existing := dev[key]
 		if existing == nil {
-			dev[ci.Name] = proto.Clone(ci).(*gantryv1.ChannelInfo)
+			dev[key] = proto.Clone(ci).(*gantryv1.ChannelInfo)
 			continue
 		}
 		if ci.Kind != gantryv1.ValueKind_VALUE_KIND_UNSPECIFIED {
@@ -71,7 +83,7 @@ func (r *Registry) ObserveBatch(batch *gantryv1.FrameBatch) {
 	defer r.mu.Unlock()
 	dev := r.devices[batch.DeviceId]
 	if dev == nil {
-		dev = make(map[string]*gantryv1.ChannelInfo)
+		dev = make(map[chanKey]*gantryv1.ChannelInfo)
 		r.devices[batch.DeviceId] = dev
 	}
 	for _, f := range batch.Frames {
@@ -79,9 +91,10 @@ func (r *Registry) ObserveBatch(batch *gantryv1.FrameBatch) {
 			continue
 		}
 		kind := InferKind(f.Value)
-		existing := dev[f.Channel]
+		key := chanKey{packet: f.Packet, name: f.Channel}
+		existing := dev[key]
 		if existing == nil {
-			dev[f.Channel] = &gantryv1.ChannelInfo{Name: f.Channel, Kind: kind}
+			dev[key] = &gantryv1.ChannelInfo{Name: f.Channel, Kind: kind, Packet: f.Packet}
 			continue
 		}
 		if existing.Kind == gantryv1.ValueKind_VALUE_KIND_UNSPECIFIED {
@@ -111,14 +124,20 @@ func (r *Registry) List(deviceID string) []*gantryv1.DeviceChannels {
 	out := make([]*gantryv1.DeviceChannels, 0, len(deviceIDs))
 	for _, id := range deviceIDs {
 		chans := r.devices[id]
-		names := make([]string, 0, len(chans))
-		for n := range chans {
-			names = append(names, n)
+		keys := make([]chanKey, 0, len(chans))
+		for k := range chans {
+			keys = append(keys, k)
 		}
-		sort.Strings(names)
-		infos := make([]*gantryv1.ChannelInfo, 0, len(names))
-		for _, n := range names {
-			infos = append(infos, proto.Clone(chans[n]).(*gantryv1.ChannelInfo))
+		// Deterministic order: by packet, then channel name.
+		sort.Slice(keys, func(i, j int) bool {
+			if keys[i].packet != keys[j].packet {
+				return keys[i].packet < keys[j].packet
+			}
+			return keys[i].name < keys[j].name
+		})
+		infos := make([]*gantryv1.ChannelInfo, 0, len(keys))
+		for _, k := range keys {
+			infos = append(infos, proto.Clone(chans[k]).(*gantryv1.ChannelInfo))
 		}
 		out = append(out, &gantryv1.DeviceChannels{DeviceId: id, Channels: infos})
 	}

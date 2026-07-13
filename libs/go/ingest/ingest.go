@@ -68,6 +68,16 @@ func (e *Engine) PublishBatch(ctx context.Context, batch *gantryv1.FrameBatch) (
 	if err := Validate(batch); err != nil {
 		return 0, err
 	}
+	// FrameBatch.device_id is authoritative (ingest.proto): emitters may leave
+	// Frame.device_id empty, and any per-frame value that disagrees with the
+	// batch is overwritten — batch wins, no error. This normalization happens
+	// before observe/publish so the registry and the stream both see the
+	// canonical device.
+	for _, f := range batch.Frames {
+		if f != nil {
+			f.DeviceId = batch.DeviceId
+		}
+	}
 	// Registry update first so ListChannels reflects auto-registered channels
 	// even for frames on brand-new channels.
 	e.reg.ObserveBatch(batch)
