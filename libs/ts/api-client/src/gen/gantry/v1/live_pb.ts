@@ -49,6 +49,10 @@ export const SubscribeRequestSchema: GenMessage<SubscribeRequest> = /*@__PURE__*
   messageDesc(file_gantry_v1_live, 0);
 
 /**
+ * CONTRACT: the server sends one SubscribeResponse with zero frames
+ * immediately on successful subscription (stream-open signal / heartbeat).
+ * Clients must treat empty responses as keepalives, not data.
+ *
  * @generated from message gantry.v1.SubscribeResponse
  */
 export type SubscribeResponse = Message<"gantry.v1.SubscribeResponse"> & {

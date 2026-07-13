@@ -25,6 +25,9 @@ message SubscribeRequest {
   uint32 replay_seconds = 3;
 }
 
+// CONTRACT: the server sends one SubscribeResponse with zero frames
+// immediately on successful subscription (stream-open signal / heartbeat).
+// Clients must treat empty responses as keepalives, not data.
 message SubscribeResponse {
   repeated Frame frames = 1;
 }

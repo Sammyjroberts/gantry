@@ -85,6 +85,9 @@ func (x *SubscribeRequest) GetReplaySeconds() uint32 {
 	return 0
 }
 
+// CONTRACT: the server sends one SubscribeResponse with zero frames
+// immediately on successful subscription (stream-open signal / heartbeat).
+// Clients must treat empty responses as keepalives, not data.
 type SubscribeResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Frames        []*Frame               `protobuf:"bytes,1,rep,name=frames,proto3" json:"frames,omitempty"`

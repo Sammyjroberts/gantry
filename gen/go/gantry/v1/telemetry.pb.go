@@ -215,12 +215,19 @@ func (*Value_Raw) isValue_Kind() {}
 // One sample on one channel at one instant.
 type Frame struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Canonical channel name, e.g. "drive.motor_left.current_a".
-	// Dot-separated lowercase tokens by convention.
+	// Canonical channel (param) name, e.g. "pitch_deg" within packet "imu",
+	// or a full dot-path for ad-hoc channels. Lowercase tokens by convention.
 	Channel string `protobuf:"bytes,1,opt,name=channel,proto3" json:"channel,omitempty"`
 	// Nanoseconds since Unix epoch, as stamped by the emitter.
-	TimestampNs   uint64 `protobuf:"fixed64,2,opt,name=timestamp_ns,json=timestampNs,proto3" json:"timestamp_ns,omitempty"`
-	Value         *Value `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	TimestampNs uint64 `protobuf:"fixed64,2,opt,name=timestamp_ns,json=timestampNs,proto3" json:"timestamp_ns,omitempty"`
+	Value       *Value `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	// Packet (telemetry struct) this channel belongs to. Empty for ad-hoc
+	// channels. Packets are first-class: storage keys on (packet, param).
+	Packet string `protobuf:"bytes,4,opt,name=packet,proto3" json:"packet,omitempty"`
+	// Emitting device. Populated by the SERVER on outbound live streams so
+	// multi-device subscriptions are attributable; emitters may leave it empty
+	// on ingest (FrameBatch.device_id is authoritative there).
+	DeviceId      string `protobuf:"bytes,5,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -274,6 +281,20 @@ func (x *Frame) GetValue() *Value {
 		return x.Value
 	}
 	return nil
+}
+
+func (x *Frame) GetPacket() string {
+	if x != nil {
+		return x.Packet
+	}
+	return ""
+}
+
+func (x *Frame) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
 }
 
 // The unit of transmission: a batch of frames from one device.
@@ -346,8 +367,10 @@ type ChannelInfo struct {
 	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Kind  ValueKind              `protobuf:"varint,2,opt,name=kind,proto3,enum=gantry.v1.ValueKind" json:"kind,omitempty"`
 	// Unit string, e.g. "A", "m/s", "degC". Free-form but conventional.
-	Unit          string `protobuf:"bytes,3,opt,name=unit,proto3" json:"unit,omitempty"`
-	Description   string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Unit        string `protobuf:"bytes,3,opt,name=unit,proto3" json:"unit,omitempty"`
+	Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	// Packet (telemetry struct) this channel belongs to; empty for ad-hoc.
+	Packet        string `protobuf:"bytes,5,opt,name=packet,proto3" json:"packet,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -410,6 +433,13 @@ func (x *ChannelInfo) GetDescription() string {
 	return ""
 }
 
+func (x *ChannelInfo) GetPacket() string {
+	if x != nil {
+		return x.Packet
+	}
+	return ""
+}
+
 var File_gantry_v1_telemetry_proto protoreflect.FileDescriptor
 
 const file_gantry_v1_telemetry_proto_rawDesc = "" +
@@ -421,21 +451,24 @@ const file_gantry_v1_telemetry_proto_rawDesc = "" +
 	"\x04flag\x18\x03 \x01(\bH\x00R\x04flag\x12\x14\n" +
 	"\x04text\x18\x04 \x01(\tH\x00R\x04text\x12\x12\n" +
 	"\x03raw\x18\x05 \x01(\fH\x00R\x03rawB\x06\n" +
-	"\x04kind\"l\n" +
+	"\x04kind\"\xa1\x01\n" +
 	"\x05Frame\x12\x18\n" +
 	"\achannel\x18\x01 \x01(\tR\achannel\x12!\n" +
 	"\ftimestamp_ns\x18\x02 \x01(\x06R\vtimestampNs\x12&\n" +
-	"\x05value\x18\x03 \x01(\v2\x10.gantry.v1.ValueR\x05value\"o\n" +
+	"\x05value\x18\x03 \x01(\v2\x10.gantry.v1.ValueR\x05value\x12\x16\n" +
+	"\x06packet\x18\x04 \x01(\tR\x06packet\x12\x1b\n" +
+	"\tdevice_id\x18\x05 \x01(\tR\bdeviceId\"o\n" +
 	"\n" +
 	"FrameBatch\x12\x1b\n" +
 	"\tdevice_id\x18\x01 \x01(\tR\bdeviceId\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x04R\bsequence\x12(\n" +
-	"\x06frames\x18\x03 \x03(\v2\x10.gantry.v1.FrameR\x06frames\"\x81\x01\n" +
+	"\x06frames\x18\x03 \x03(\v2\x10.gantry.v1.FrameR\x06frames\"\x99\x01\n" +
 	"\vChannelInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12(\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x14.gantry.v1.ValueKindR\x04kind\x12\x12\n" +
 	"\x04unit\x18\x03 \x01(\tR\x04unit\x12 \n" +
-	"\vdescription\x18\x04 \x01(\tR\vdescription*\x8d\x01\n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x16\n" +
+	"\x06packet\x18\x05 \x01(\tR\x06packet*\x8d\x01\n" +
 	"\tValueKind\x12\x1a\n" +
 	"\x16VALUE_KIND_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eVALUE_KIND_F64\x10\x01\x12\x12\n" +

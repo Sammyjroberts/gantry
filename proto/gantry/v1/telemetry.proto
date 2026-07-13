@@ -26,12 +26,19 @@ message Value {
 
 // One sample on one channel at one instant.
 message Frame {
-  // Canonical channel name, e.g. "drive.motor_left.current_a".
-  // Dot-separated lowercase tokens by convention.
+  // Canonical channel (param) name, e.g. "pitch_deg" within packet "imu",
+  // or a full dot-path for ad-hoc channels. Lowercase tokens by convention.
   string channel = 1;
   // Nanoseconds since Unix epoch, as stamped by the emitter.
   fixed64 timestamp_ns = 2;
   Value value = 3;
+  // Packet (telemetry struct) this channel belongs to. Empty for ad-hoc
+  // channels. Packets are first-class: storage keys on (packet, param).
+  string packet = 4;
+  // Emitting device. Populated by the SERVER on outbound live streams so
+  // multi-device subscriptions are attributable; emitters may leave it empty
+  // on ingest (FrameBatch.device_id is authoritative there).
+  string device_id = 5;
 }
 
 // The unit of transmission: a batch of frames from one device.
@@ -51,4 +58,6 @@ message ChannelInfo {
   // Unit string, e.g. "A", "m/s", "degC". Free-form but conventional.
   string unit = 3;
   string description = 4;
+  // Packet (telemetry struct) this channel belongs to; empty for ad-hoc.
+  string packet = 5;
 }

@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gantry/v1/telemetry.proto.
  */
 export const file_gantry_v1_telemetry: GenFile = /*@__PURE__*/
-  fileDesc("ChlnYW50cnkvdjEvdGVsZW1ldHJ5LnByb3RvEglnYW50cnkudjEiXAoFVmFsdWUSDQoDZjY0GAEgASgBSAASDQoDaTY0GAIgASgSSAASDgoEZmxhZxgDIAEoCEgAEg4KBHRleHQYBCABKAlIABINCgNyYXcYBSABKAxIAEIGCgRraW5kIk8KBUZyYW1lEg8KB2NoYW5uZWwYASABKAkSFAoMdGltZXN0YW1wX25zGAIgASgGEh8KBXZhbHVlGAMgASgLMhAuZ2FudHJ5LnYxLlZhbHVlIlMKCkZyYW1lQmF0Y2gSEQoJZGV2aWNlX2lkGAEgASgJEhAKCHNlcXVlbmNlGAIgASgEEiAKBmZyYW1lcxgDIAMoCzIQLmdhbnRyeS52MS5GcmFtZSJiCgtDaGFubmVsSW5mbxIMCgRuYW1lGAEgASgJEiIKBGtpbmQYAiABKA4yFC5nYW50cnkudjEuVmFsdWVLaW5kEgwKBHVuaXQYAyABKAkSEwoLZGVzY3JpcHRpb24YBCABKAkqjQEKCVZhbHVlS2luZBIaChZWQUxVRV9LSU5EX1VOU1BFQ0lGSUVEEAASEgoOVkFMVUVfS0lORF9GNjQQARISCg5WQUxVRV9LSU5EX0k2NBACEhMKD1ZBTFVFX0tJTkRfQk9PTBADEhMKD1ZBTFVFX0tJTkRfVEVYVBAEEhIKDlZBTFVFX0tJTkRfUkFXEAVCnwEKDWNvbS5nYW50cnkudjFCDlRlbGVtZXRyeVByb3RvUAFaOWdpdGh1Yi5jb20vU2FtbXlqcm9iZXJ0cy9nYW50cnkvZ2VuL2dvL2dhbnRyeS92MTtnYW50cnl2MaICA0dYWKoCCUdhbnRyeS5WMcoCCUdhbnRyeVxWMeICFUdhbnRyeVxWMVxHUEJNZXRhZGF0YeoCCkdhbnRyeTo6VjFiBnByb3RvMw");
+  fileDesc("ChlnYW50cnkvdjEvdGVsZW1ldHJ5LnByb3RvEglnYW50cnkudjEiXAoFVmFsdWUSDQoDZjY0GAEgASgBSAASDQoDaTY0GAIgASgSSAASDgoEZmxhZxgDIAEoCEgAEg4KBHRleHQYBCABKAlIABINCgNyYXcYBSABKAxIAEIGCgRraW5kInIKBUZyYW1lEg8KB2NoYW5uZWwYASABKAkSFAoMdGltZXN0YW1wX25zGAIgASgGEh8KBXZhbHVlGAMgASgLMhAuZ2FudHJ5LnYxLlZhbHVlEg4KBnBhY2tldBgEIAEoCRIRCglkZXZpY2VfaWQYBSABKAkiUwoKRnJhbWVCYXRjaBIRCglkZXZpY2VfaWQYASABKAkSEAoIc2VxdWVuY2UYAiABKAQSIAoGZnJhbWVzGAMgAygLMhAuZ2FudHJ5LnYxLkZyYW1lInIKC0NoYW5uZWxJbmZvEgwKBG5hbWUYASABKAkSIgoEa2luZBgCIAEoDjIULmdhbnRyeS52MS5WYWx1ZUtpbmQSDAoEdW5pdBgDIAEoCRITCgtkZXNjcmlwdGlvbhgEIAEoCRIOCgZwYWNrZXQYBSABKAkqjQEKCVZhbHVlS2luZBIaChZWQUxVRV9LSU5EX1VOU1BFQ0lGSUVEEAASEgoOVkFMVUVfS0lORF9GNjQQARISCg5WQUxVRV9LSU5EX0k2NBACEhMKD1ZBTFVFX0tJTkRfQk9PTBADEhMKD1ZBTFVFX0tJTkRfVEVYVBAEEhIKDlZBTFVFX0tJTkRfUkFXEAVCnwEKDWNvbS5nYW50cnkudjFCDlRlbGVtZXRyeVByb3RvUAFaOWdpdGh1Yi5jb20vU2FtbXlqcm9iZXJ0cy9nYW50cnkvZ2VuL2dvL2dhbnRyeS92MTtnYW50cnl2MaICA0dYWKoCCUdhbnRyeS5WMcoCCUdhbnRyeVxWMeICFUdhbnRyeVxWMVxHUEJNZXRhZGF0YeoCCkdhbnRyeTo6VjFiBnByb3RvMw");
 
 /**
  * A single telemetry value. Kept as a oneof so constrained emitters pay only
@@ -69,8 +69,8 @@ export const ValueSchema: GenMessage<Value> = /*@__PURE__*/
  */
 export type Frame = Message<"gantry.v1.Frame"> & {
   /**
-   * Canonical channel name, e.g. "drive.motor_left.current_a".
-   * Dot-separated lowercase tokens by convention.
+   * Canonical channel (param) name, e.g. "pitch_deg" within packet "imu",
+   * or a full dot-path for ad-hoc channels. Lowercase tokens by convention.
    *
    * @generated from field: string channel = 1;
    */
@@ -87,6 +87,23 @@ export type Frame = Message<"gantry.v1.Frame"> & {
    * @generated from field: gantry.v1.Value value = 3;
    */
   value?: Value | undefined;
+
+  /**
+   * Packet (telemetry struct) this channel belongs to. Empty for ad-hoc
+   * channels. Packets are first-class: storage keys on (packet, param).
+   *
+   * @generated from field: string packet = 4;
+   */
+  packet: string;
+
+  /**
+   * Emitting device. Populated by the SERVER on outbound live streams so
+   * multi-device subscriptions are attributable; emitters may leave it empty
+   * on ingest (FrameBatch.device_id is authoritative there).
+   *
+   * @generated from field: string device_id = 5;
+   */
+  deviceId: string;
 };
 
 /**
@@ -157,6 +174,13 @@ export type ChannelInfo = Message<"gantry.v1.ChannelInfo"> & {
    * @generated from field: string description = 4;
    */
   description: string;
+
+  /**
+   * Packet (telemetry struct) this channel belongs to; empty for ad-hoc.
+   *
+   * @generated from field: string packet = 5;
+   */
+  packet: string;
 };
 
 /**
