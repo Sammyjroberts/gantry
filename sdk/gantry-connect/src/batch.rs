@@ -12,6 +12,10 @@ pub fn frame(channel: impl Into<String>, timestamp_ns: u64, value: Value) -> Fra
         channel: channel.into(),
         timestamp_ns,
         value: Some(value),
+        // Std client emits ad-hoc (packet-less) channels today; packets are the
+        // derive-struct MCU story. device_id is authoritative on the batch.
+        packet: String::new(),
+        device_id: String::new(),
     }
 }
 

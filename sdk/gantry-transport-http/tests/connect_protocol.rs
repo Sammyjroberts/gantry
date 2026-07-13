@@ -78,6 +78,8 @@ fn sample_batch() -> FrameBatch {
             value: Some(Value {
                 kind: Some(Kind::F64(2.5)),
             }),
+            packet: String::new(),
+            device_id: String::new(),
         }],
     }
 }
@@ -122,6 +124,7 @@ fn register_hits_the_register_endpoint() {
                 kind: gantry_connect_proto::v1::ValueKind::F64 as i32,
                 unit: "V".into(),
                 description: "pack voltage".into(),
+                packet: String::new(),
             }],
         )
         .expect("register ok");

@@ -1,0 +1,19 @@
+[package]
+name = "gantry-wire"
+description = "Gantry device wire format (v0): no_std COBS/CRC-16 framed record codec for MCU telemetry. Encoder is alloc-free; decoder is behind the `alloc` feature."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+# `std` is the default so `cargo test --workspace` exercises the decoder on the host.
+# MCU/no_std users depend with `default-features = false` (encoder only, zero alloc).
+default = ["std"]
+alloc = []
+std = ["alloc"]
+
+[dependencies]
+
+[dev-dependencies]

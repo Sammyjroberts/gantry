@@ -1,0 +1,5 @@
+error: unsupported #[derive(Telemetry)] field type: expected one of f32, f64, bool, i8, i16, i32, i64, u8, u16, u32 (&str and other types are not supported in v1)
+ --> tests/ui/unsupported_type.rs:6:12
+  |
+6 |     label: &'a str,
+  |            ^^^^^^^

@@ -130,6 +130,7 @@ impl ChannelSpec {
             kind: self.kind as i32,
             unit: self.unit.clone(),
             description: self.description.clone(),
+            packet: String::new(),
         }
     }
 }

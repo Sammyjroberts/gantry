@@ -1,0 +1,22 @@
+[package]
+name = "gantry-tlm-derive"
+description = "#[derive(Telemetry)] for gantry-tlm. Generates nothing unless the `enabled` feature is on (forwarded from gantry-tlm/enabled), preserving zero-cost-when-disabled."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+proc-macro = true
+
+[features]
+# Off by default. `gantry-tlm/enabled` turns this on transitively, so when telemetry is
+# compiled out the derive expands to an empty token stream (zero flash/RAM).
+default = []
+enabled = []
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }

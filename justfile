@@ -58,6 +58,17 @@ typecheck-web:
 
 lint-rust:
     cd sdk && cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check
+    cd sdk && cargo clippy -p gantry-tlm --features enabled --all-targets -- -D warnings
+
+# Device SDK: run the tlm suite in BOTH modes (disabled is the workspace default)
+test-tlm:
+    cd sdk && cargo test -p gantry-wire -p gantry-tlm
+    cd sdk && cargo test -p gantry-tlm --features enabled
+
+# Prove the MCU story: no_std builds (needs `rustup target add thumbv7em-none-eabi`)
+sdk-nostd:
+    cd sdk && cargo build -p gantry-wire --no-default-features --target thumbv7em-none-eabi
+    cd sdk && cargo build -p gantry-tlm --no-default-features --features enabled --target thumbv7em-none-eabi
 
 # Run the Edge binary (dev)
 edge:

@@ -84,6 +84,8 @@ mod tests {
             value: Some(Value {
                 kind: Some(Kind::I64(seq)),
             }),
+            packet: String::new(),
+            device_id: String::new(),
         }
     }
 

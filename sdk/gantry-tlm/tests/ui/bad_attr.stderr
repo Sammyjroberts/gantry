@@ -1,0 +1,5 @@
+error: unknown #[tlm(...)] key on field (expected `unit` or `name`)
+ --> tests/ui/bad_attr.rs:6:11
+  |
+6 |     #[tlm(scale = "2")]
+  |           ^^^^^

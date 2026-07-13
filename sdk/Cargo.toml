@@ -6,6 +6,9 @@ members = [
     "gantry-connect-proto",
     "gantry-connect",
     "gantry-transport-http",
+    "gantry-wire",
+    "gantry-tlm",
+    "gantry-tlm-derive",
 ]
 
 [workspace.package]

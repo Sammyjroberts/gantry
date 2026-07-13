@@ -36,6 +36,8 @@ mod tests {
                     value: Some(Value {
                         kind: Some(Kind::F64(1.5)),
                     }),
+                    packet: "drive".into(),
+                    device_id: String::new(),
                 },
                 Frame {
                     channel: "status.armed".into(),
@@ -43,6 +45,8 @@ mod tests {
                     value: Some(Value {
                         kind: Some(Kind::Flag(true)),
                     }),
+                    packet: String::new(),
+                    device_id: String::new(),
                 },
             ],
         };

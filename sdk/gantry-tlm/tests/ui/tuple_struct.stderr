@@ -1,0 +1,5 @@
+error: #[derive(Telemetry)] requires a struct with named fields
+ --> tests/ui/tuple_struct.rs:5:8
+  |
+5 | struct Bad(f32, f32);
+  |        ^^^
