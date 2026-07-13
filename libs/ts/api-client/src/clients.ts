@@ -6,6 +6,7 @@ import {
 import { LiveService } from "./gen/gantry/v1/live_pb";
 import { IngestService } from "./gen/gantry/v1/ingest_pb";
 import { ExperimentService } from "./gen/gantry/v1/experiment_pb";
+import { QueryService } from "./gen/gantry/v1/query_pb";
 
 /** Typed client for the live telemetry (streaming) service. */
 export type LiveClient = Client<typeof LiveService>;
@@ -13,6 +14,8 @@ export type LiveClient = Client<typeof LiveService>;
 export type IngestClient = Client<typeof IngestService>;
 /** Typed client for the experiment (test-run) service. */
 export type ExperimentClient = Client<typeof ExperimentService>;
+/** Typed client for the historical range-query service. */
+export type QueryClient = Client<typeof QueryService>;
 
 /**
  * Extra transport options, minus `baseUrl` which is passed positionally.
@@ -54,4 +57,18 @@ export function createExperimentClient(
   options: ClientOptions = {},
 ): ExperimentClient {
   return createClient(ExperimentService, createConnectTransport({ baseUrl, ...options }));
+}
+
+/**
+ * Create a typed QueryService client bound to `baseUrl`.
+ *
+ * Same origin/base contract as {@link createLiveClient}: Connect appends the
+ * `/gantry.v1.QueryService/...` RPC path. Serves the console's time-range
+ * navigation (historical `QueryRange` reads over the stream's retention window).
+ */
+export function createQueryClient(
+  baseUrl: string,
+  options: ClientOptions = {},
+): QueryClient {
+  return createClient(QueryService, createConnectTransport({ baseUrl, ...options }));
 }

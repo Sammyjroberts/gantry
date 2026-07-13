@@ -2,42 +2,30 @@ package mcp
 
 import (
 	"context"
-	"encoding/base64"
-	"fmt"
 	"sort"
-	"strconv"
 	"time"
 
 	gantryv1 "github.com/Sammyjroberts/gantry/gen/go/gantry/v1"
-	"github.com/Sammyjroberts/gantry/libs/go/stream"
+	"github.com/Sammyjroberts/gantry/libs/go/query"
 )
 
-// Drain tuning. Replay from an in-process JetStream is effectively instant, so
-// these bound how long a tool call waits for a replay to complete, not how much
-// data it can return.
-const (
-	// drainFirstFrame is how long to wait for the FIRST replayed frame before
-	// concluding the window is genuinely empty. Consumer creation + replay
-	// startup can exceed the between-frame idle gap under ingest load (seen at
-	// 500Hz: a short gap here returned empty results nondeterministically), so
-	// the empty-window verdict gets its own generous deadline.
-	drainFirstFrame = 3 * time.Second
-	// drainIdle ends a drain once frames HAVE been flowing and none has arrived
-	// for this long: the replay backlog is considered flushed. Needed because a
-	// filtered subscription may never observe the stream's global last sequence
-	// (that message can be on a subject we did not select), so a high-water mark
-	// alone cannot terminate. Kept well above scheduler/GC hiccups — a 400ms gap
-	// once truncated a 1200-frame replay mid-backlog under CPU load. Active
-	// channels still terminate promptly via the high-water check; idle only
-	// decides quiet-channel queries, where an extra second is acceptable.
-	drainIdle = 1500 * time.Millisecond
-	// drainCap is the absolute ceiling on a single collection, a safety valve
-	// against a firehose device keeping the drain alive with live frames.
-	drainCap = 10 * time.Second
-	// maxCollectPoints caps total points buffered across all channels in one
-	// call, bounding memory on a very wide/dense window before downsampling.
-	maxCollectPoints = 400_000
-)
+// The MCP tools address channels by name and key their results by
+// (device, channel). The shared query engine keys by the fuller
+// (device, packet, channel) identity, so this file re-projects the engine's
+// series down to MCP's coarser key, preserving the v1 read surface's documented
+// same-name-across-packets merge behavior. The bucket math, value decoding, and
+// the bounded replay drain all live in libs/go/query now.
+
+// sample, bucket, and rawPoint alias the shared engine types so the tool code
+// (tools.go) reads unchanged against them.
+type sample = query.Sample
+type bucket = query.Bucket
+type rawPoint = query.RawPoint
+
+func downsample(s []sample, maxPoints int) []bucket { return query.Downsample(s, maxPoints) }
+func rawPoints(s []sample) []rawPoint               { return query.RawPoints(s) }
+func kindString(k gantryv1.ValueKind) string        { return query.KindString(k) }
+func isNumericKind(k gantryv1.ValueKind) bool       { return query.IsNumericKind(k) }
 
 // collectKey identifies a series within a collection by (device, channel).
 // Packet is carried as sample metadata rather than key identity: MCP callers
@@ -48,201 +36,42 @@ type collectKey struct {
 	channel string
 }
 
-// sample is one decoded frame reduced to what the tools need.
-type sample struct {
-	tNs    int64
-	packet string
-	// num holds the numeric value when numeric is true (f64/i64 as float, bool
-	// as 0/1). For text/raw channels numeric is false and text carries a
-	// display string.
-	num     float64
-	numeric bool
-	text    string
-	kind    gantryv1.ValueKind
-}
-
-// collection is the result of draining a replay window.
+// collection is the (device, channel)-keyed view the tools consume.
 type collection struct {
-	series map[collectKey][]sample
-	total  int
-	// truncated is set if maxCollectPoints stopped collection early.
+	series    map[collectKey][]sample
+	total     int
 	truncated bool
 }
 
-// collectWindow opens a replay subscription over the last `seconds` and drains
-// the backlog into per-series samples. Termination is the earliest of: reaching
-// the stream high-water sequence (when hasHighWater), an idle gap, the absolute
-// cap, or ctx cancellation. Frames published after the call began (stream
-// sequence beyond the high-water mark) are excluded so results are a stable
-// snapshot of "up to now".
-func collectWindow(ctx context.Context, rep Replayer, highWater uint64, hasHighWater bool, deviceID string, channels []string, seconds uint32) (*collection, error) {
-	c := &collection{series: make(map[collectKey][]sample)}
-	if hasHighWater && highWater == 0 {
-		return c, nil // empty stream: nothing to replay
-	}
-
-	subCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	ch, err := rep.Subscribe(subCtx, stream.SubscribeOptions{
-		DeviceID:      deviceID,
-		Channels:      channels,
-		ReplaySeconds: seconds,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("replay subscribe: %w", err)
-	}
-
-	// One timer, two phases: until the first frame arrives it runs on the long
-	// first-frame deadline; after that, each frame re-arms it with the shorter
-	// between-frame idle gap.
-	idle := time.NewTimer(drainFirstFrame)
-	defer idle.Stop()
-	capTimer := time.NewTimer(drainCap)
-	defer capTimer.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return c, ctx.Err()
-		case <-capTimer.C:
-			return c, nil
-		case <-idle.C:
-			return c, nil
-		case d, ok := <-ch:
-			if !ok {
-				return c, nil
-			}
-			if hasHighWater && d.StreamSeq > highWater {
-				return c, nil // reached live tail; stop before including post-call frames
-			}
-			c.add(d)
-			atHighWater := hasHighWater && d.StreamSeq >= highWater
-			if c.total >= maxCollectPoints {
-				c.truncated = true
-				return c, nil
-			}
-			if atHighWater {
-				return c, nil // drained everything up to the snapshot
-			}
-			if !idle.Stop() {
-				select {
-				case <-idle.C:
-				default:
-				}
-			}
-			idle.Reset(drainIdle)
-		}
-	}
-}
-
-func (c *collection) add(d stream.Delivered) {
-	f := d.Frame
-	if f == nil || f.Channel == "" {
-		return
-	}
-	key := collectKey{device: d.DeviceID, channel: f.Channel}
-	s := sample{tNs: int64(f.TimestampNs), packet: f.Packet, kind: valueKind(f.Value)}
-	if n, ok := numericValue(f.Value); ok {
-		s.num = n
-		s.numeric = true
-	} else {
-		s.text = textValue(f.Value)
-	}
-	c.series[key] = append(c.series[key], s)
-	c.total++
-}
-
 // sortedByTime returns the samples for a key in ascending timestamp order.
-// Ordered consumers already deliver in stream order, but replayed cross-channel
-// interleaving plus emitter-stamped timestamps mean per-series time order is not
-// guaranteed; sort to be safe.
 func (c *collection) sortedByTime(key collectKey) []sample {
 	s := c.series[key]
-	sort.SliceStable(s, func(i, j int) bool { return s[i].tNs < s[j].tNs })
+	sort.SliceStable(s, func(i, j int) bool { return s[i].TNs < s[j].TNs })
 	return s
 }
 
-// numericValue extracts a float64 from a telemetry Value for numeric kinds
-// (f64, i64, bool→0/1). ok is false for text/raw/unset.
-func numericValue(v *gantryv1.Value) (float64, bool) {
-	if v == nil {
-		return 0, false
+// collectWindow drains the last `seconds` via the shared query engine and
+// re-keys the (device, packet, channel) series down to MCP's (device, channel)
+// identity. The window is expressed as an absolute [now-seconds, unbounded]
+// range: the high-water snapshot (not an end timestamp) bounds the tail, exactly
+// as the previous replay-window collector did.
+func collectWindow(ctx context.Context, rep Replayer, highWater uint64, hasHighWater bool, deviceID string, channels []string, seconds uint32) (*collection, error) {
+	startNs := time.Now().Add(-time.Duration(seconds) * time.Second).UnixNano()
+	q, err := query.Collect(ctx, rep, query.Options{
+		DeviceID:     deviceID,
+		Channels:     channels,
+		StartNs:      startNs,
+		EndNs:        0, // unbounded upper: the high-water snapshot stops the drain
+		HighWater:    highWater,
+		HasHighWater: hasHighWater,
+	})
+	if err != nil {
+		return nil, err
 	}
-	switch k := v.Kind.(type) {
-	case *gantryv1.Value_F64:
-		return k.F64, true
-	case *gantryv1.Value_I64:
-		return float64(k.I64), true
-	case *gantryv1.Value_Flag:
-		if k.Flag {
-			return 1, true
-		}
-		return 0, true
-	default:
-		return 0, false
+	c := &collection{series: make(map[collectKey][]sample), total: q.Total, truncated: q.Truncated}
+	for k, samples := range q.Series {
+		ck := collectKey{device: k.Device, channel: k.Channel}
+		c.series[ck] = append(c.series[ck], samples...)
 	}
-}
-
-// textValue renders any Value as a display string (used for non-numeric
-// channels and for get_last's raw value echo).
-func textValue(v *gantryv1.Value) string {
-	if v == nil {
-		return ""
-	}
-	switch k := v.Kind.(type) {
-	case *gantryv1.Value_F64:
-		return strconv.FormatFloat(k.F64, 'g', -1, 64)
-	case *gantryv1.Value_I64:
-		return strconv.FormatInt(k.I64, 10)
-	case *gantryv1.Value_Flag:
-		return strconv.FormatBool(k.Flag)
-	case *gantryv1.Value_Text:
-		return k.Text
-	case *gantryv1.Value_Raw:
-		return base64.StdEncoding.EncodeToString(k.Raw)
-	default:
-		return ""
-	}
-}
-
-// valueKind maps a Value's oneof arm to its ValueKind (mirrors registry.InferKind
-// without pulling the registry into the value path).
-func valueKind(v *gantryv1.Value) gantryv1.ValueKind {
-	if v == nil {
-		return gantryv1.ValueKind_VALUE_KIND_UNSPECIFIED
-	}
-	switch v.Kind.(type) {
-	case *gantryv1.Value_F64:
-		return gantryv1.ValueKind_VALUE_KIND_F64
-	case *gantryv1.Value_I64:
-		return gantryv1.ValueKind_VALUE_KIND_I64
-	case *gantryv1.Value_Flag:
-		return gantryv1.ValueKind_VALUE_KIND_BOOL
-	case *gantryv1.Value_Text:
-		return gantryv1.ValueKind_VALUE_KIND_TEXT
-	case *gantryv1.Value_Raw:
-		return gantryv1.ValueKind_VALUE_KIND_RAW
-	default:
-		return gantryv1.ValueKind_VALUE_KIND_UNSPECIFIED
-	}
-}
-
-// kindString gives the compact JSON tag for a ValueKind ("f64", "i64", "bool",
-// "text", "raw", "unspecified").
-func kindString(k gantryv1.ValueKind) string {
-	switch k {
-	case gantryv1.ValueKind_VALUE_KIND_F64:
-		return "f64"
-	case gantryv1.ValueKind_VALUE_KIND_I64:
-		return "i64"
-	case gantryv1.ValueKind_VALUE_KIND_BOOL:
-		return "bool"
-	case gantryv1.ValueKind_VALUE_KIND_TEXT:
-		return "text"
-	case gantryv1.ValueKind_VALUE_KIND_RAW:
-		return "raw"
-	default:
-		return "unspecified"
-	}
+	return c, nil
 }

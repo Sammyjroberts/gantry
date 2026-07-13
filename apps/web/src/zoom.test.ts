@@ -2,13 +2,17 @@ import { describe, it, expect } from "vitest";
 import {
   INITIAL_ZOOM,
   MIN_WINDOW_SEC,
+  applyPreset,
   backToLive,
   clampRange,
+  currentWidth,
   liveWindow,
   panBy,
   resolveWindow,
   setRange,
+  stepBy,
   zoomAt,
+  zoomOutBy,
   type Bounds,
   type ZoomState,
 } from "./zoom";
@@ -108,6 +112,64 @@ describe("setRange", () => {
   it("ignores a degenerate/backwards range", () => {
     expect(setRange(INITIAL_ZOOM, bounds, 1400, 1200)).toBe(INITIAL_ZOOM);
     expect(setRange(INITIAL_ZOOM, bounds, 1400, 1400)).toBe(INITIAL_ZOOM);
+  });
+});
+
+describe("currentWidth", () => {
+  it("is windowSec in live mode", () => {
+    expect(currentWidth(INITIAL_ZOOM, 60)).toBe(60);
+  });
+  it("is the fixed range width in inspect mode", () => {
+    expect(currentWidth({ mode: "inspect", min: 1200, max: 1500 }, 60)).toBe(300);
+  });
+});
+
+describe("applyPreset", () => {
+  it("returns to live at the requested width, even from inspect", () => {
+    const from = setRange(INITIAL_ZOOM, bounds, 1200, 1400);
+    const r = applyPreset(300);
+    expect(from.mode).toBe("inspect"); // sanity: we started inspecting
+    expect(r.zoom.mode).toBe("live");
+    expect(r.windowSec).toBe(300);
+  });
+  it("floors the width at MIN_WINDOW_SEC", () => {
+    expect(applyPreset(0).windowSec).toBe(MIN_WINDOW_SEC);
+  });
+});
+
+describe("stepBy", () => {
+  it("steps an inspect window one full width earlier", () => {
+    const start = setRange(INITIAL_ZOOM, bounds, 1500, 1560); // width 60
+    const z = stepBy(start, 60, bounds, -1);
+    expect(z.mode).toBe("inspect");
+    expect(resolveWindow(z, 60, bounds).range).toEqual([1440, 1500]);
+  });
+  it("steps later, clamping at the live edge with preserved width", () => {
+    const start = setRange(INITIAL_ZOOM, bounds, 1900, 1960); // width 60
+    const z = stepBy(start, 60, bounds, 1);
+    expect(resolveWindow(z, 60, bounds).range).toEqual([1940, 2000]);
+  });
+  it("stepping earlier from live enters inspect anchored at now", () => {
+    // live width 60 -> current range [1940,2000]; step -1 -> [1880,1940].
+    const z = stepBy(INITIAL_ZOOM, 60, bounds, -1);
+    expect(z.mode).toBe("inspect");
+    expect(resolveWindow(z, 60, bounds).range).toEqual([1880, 1940]);
+  });
+});
+
+describe("zoomOutBy", () => {
+  it("doubles the window about its center, entering inspect", () => {
+    const start = setRange(INITIAL_ZOOM, bounds, 1500, 1560); // center 1530, width 60
+    const z = zoomOutBy(start, 60, bounds, 2);
+    expect(z.mode).toBe("inspect");
+    // width 120 about center 1530 -> [1470, 1590]
+    expect(z.min).toBeCloseTo(1470, 6);
+    expect(z.max).toBeCloseTo(1590, 6);
+  });
+  it("zoom-out from live widens about the live window center", () => {
+    // live [1940,2000], center 1970, x2 -> [1910, 2030] -> clamps right to now.
+    const z = zoomOutBy(INITIAL_ZOOM, 60, bounds, 2);
+    expect(resolveWindow(z, 60, bounds).range).toEqual([1880, 2000]);
   });
 });
 

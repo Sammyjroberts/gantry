@@ -57,13 +57,19 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	expSvc := experiments.NewService(db)
 	expReplayer := experiments.NewReplayer(bus)
 
+	// Shared JetStream state reporter (last sequence + first/last timestamps),
+	// used by both the QueryService (range bounds + retention) and MCP.
+	stater := mcp.BusStreamStater(bus)
+
 	mux := http.NewServeMux()
 	ingestPath, ingestHandler := gantryv1connect.NewIngestServiceHandler(&ingestService{engine: engine})
 	livePath, liveHandler := gantryv1connect.NewLiveServiceHandler(&liveService{bus: bus, reg: reg})
 	expPath, expHandler := gantryv1connect.NewExperimentServiceHandler(experiments.NewHandler(expSvc))
+	queryPath, queryHandler := gantryv1connect.NewQueryServiceHandler(&queryService{bus: bus, stater: stater})
 	mux.Handle(ingestPath, ingestHandler)
 	mux.Handle(livePath, liveHandler)
 	mux.Handle(expPath, expHandler)
+	mux.Handle(queryPath, queryHandler)
 
 	// CSV export over plain HTTP (browser- and script-friendly): see
 	// proto/gantry/v1/experiment.proto. Streams the experiment's stream-replay
@@ -76,10 +82,11 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	// and the "/" UI fallback. The shared "gantry-core" server package is mounted
 	// here by Edge and later by Backend behind tenancy (see docs/MCP.md).
 	mux.Handle("/mcp", mcp.NewHandler(mcp.Deps{
-		Channels:  reg,
-		Replay:    bus,
-		Stream:    mcp.BusStreamStater(bus),
-		StartedAt: time.Now(),
+		Channels:    reg,
+		Replay:      bus,
+		Stream:      stater,
+		Experiments: expSvc,
+		StartedAt:   time.Now(),
 	}))
 
 	// Static UI at "/" (ServeMux routes the more specific RPC prefixes first).

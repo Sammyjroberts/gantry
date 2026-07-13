@@ -3,7 +3,11 @@ import uPlot from "uplot";
 import type { ExperimentRegion } from "../experiments";
 
 export interface ChartProps {
-  /** Aligned [x(seconds), y] arrays. */
+  /**
+   * Aligned columns `[x(seconds), line, low, high]`. `line` is the primary
+   * series (ring value / history mean); `low`/`high` are the history min/max
+   * envelope (null outside the bucketed region). See history.combineSeries.
+   */
   data: uPlot.AlignedData;
   color: string;
   height: number;
@@ -17,6 +21,8 @@ export interface ChartProps {
   syncKey: string;
   /** Experiment time bands to shade behind the series. */
   regions?: ExperimentRegion[];
+  /** Replay playhead position (epoch seconds); draws a vertical "now" line. */
+  cursorSec?: number;
   /** Wheel zoom about a cursor position: factor>1 widens, <1 narrows. */
   onZoomAt?: (centerSec: number, factor: number) => void;
   /** Drag-box zoom to an explicit [min,max] (epoch seconds). */
@@ -34,11 +40,20 @@ const REGION_FILL_RUNNING = "rgba(229,72,77,0.08)";
 const REGION_EDGE = "rgba(79,209,197,0.45)";
 const REGION_EDGE_RUNNING = "rgba(229,72,77,0.5)";
 const REGION_LABEL = "rgba(199,208,217,0.75)";
+const CURSOR_COLOR = "rgba(226,185,59,0.9)"; // replay playhead (warn hue)
 
 /** Wheel notch zoom step. deltaY>0 (scroll down) widens (zooms out). */
 const WHEEL_FACTOR = 1.2;
 /** Min drag-box width (CSS px) to treat as a zoom rather than a stray click. */
 const MIN_DRAG_PX = 6;
+
+/**
+ * Translucent envelope fill derived from the series colour. The line colours are
+ * `#rrggbb`; append an alpha byte for the band fill.
+ */
+function envelopeFill(color: string): string {
+  return /^#[0-9a-fA-F]{6}$/.test(color) ? `${color}22` : "rgba(120,134,148,0.13)";
+}
 
 function axis(): uPlot.Axis {
   return {
@@ -56,6 +71,32 @@ interface Live {
   onPan?: ChartProps["onPan"];
   onReset?: ChartProps["onReset"];
   regions: ExperimentRegion[];
+  cursorSec?: number;
+}
+
+/**
+ * The replay playhead: a vertical line at `cursorSec` drawn on top of the
+ * series (via `draw`). Pulled from a mutable ref so the same plugin instance
+ * tracks the sweeping cursor without re-instantiating the plot.
+ */
+function cursorPlugin(live: React.MutableRefObject<Live>): uPlot.Plugin {
+  const drawCursor = (u: uPlot) => {
+    const c = live.current.cursorSec;
+    if (c === undefined) return;
+    const { ctx } = u;
+    const { left, top, width, height } = u.bbox;
+    const x = u.valToPos(c, "x", true);
+    if (x < left || x > left + width) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.strokeStyle = CURSOR_COLOR;
+    ctx.lineWidth = Math.max(1, Math.round(uPlot.pxRatio));
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, top + height);
+    ctx.stroke();
+    ctx.restore();
+  };
+  return { hooks: { draw: drawCursor } };
 }
 
 /**
@@ -145,6 +186,7 @@ export function Chart({
   stepped,
   syncKey,
   regions,
+  cursorSec,
   onZoomAt,
   onZoomRange,
   onPan,
@@ -161,6 +203,7 @@ export function Chart({
     onPan,
     onReset,
     regions: regions ?? [],
+    cursorSec,
   };
 
   useEffect(() => {
@@ -186,6 +229,10 @@ export function Chart({
         y: yRange ? { range: yRange } : { auto: true },
       },
       axes: [axis(), { ...axis(), size: 52 }],
+      // Columns: [x, line, low, high]. `line` is the visible series (ring value /
+      // history mean). `low`/`high` are invisible envelope edges; the band fills
+      // between them, so the history min/max envelope shows behind the line while
+      // the recent (ring) region carries all-null low/high and draws no band.
       series: [
         {},
         {
@@ -194,7 +241,10 @@ export function Chart({
           points: { show: false },
           ...(steppedPaths ? { paths: steppedPaths } : {}),
         },
+        { stroke: "transparent", points: { show: false }, spanGaps: false },
+        { stroke: "transparent", points: { show: false }, spanGaps: false },
       ],
+      bands: [{ series: [3, 2], fill: envelopeFill(color) }],
       hooks: {
         // Drag-box release: convert the pixel selection to an epoch-second range
         // and hand it up; then clear the selection so it doesn't linger.
@@ -209,7 +259,7 @@ export function Chart({
           },
         ],
       },
-      plugins: [regionPlugin(liveRef)],
+      plugins: [regionPlugin(liveRef), cursorPlugin(liveRef)],
     };
 
     const u = new uPlot(opts, data, host);
@@ -299,7 +349,9 @@ export function Chart({
       u.setData(p.data, false);
       u.setScale("x", { min: p.xRange[0], max: p.xRange[1] });
     });
-  }, [data, xRange]);
+    // cursorSec is a dep so a moving replay playhead forces a redraw even when
+    // the data/xRange are momentarily unchanged (e.g. paused mid-sweep).
+  }, [data, xRange, cursorSec]);
 
   useEffect(() => {
     return () => {

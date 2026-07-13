@@ -1,11 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { createLiveClient, createIngestClient, createExperimentClient } from "./clients";
+import {
+  createLiveClient,
+  createIngestClient,
+  createExperimentClient,
+  createQueryClient,
+} from "./clients";
 import {
   ValueKind,
   SubscribeRequestSchema,
   LiveService,
   ExperimentService,
+  QueryService,
   StartExperimentRequestSchema,
+  QueryRangeRequestSchema,
 } from "./index";
 
 describe("api-client factories", () => {
@@ -30,11 +37,18 @@ describe("api-client factories", () => {
     expect(typeof client.deleteExperiment).toBe("function");
   });
 
+  it("creates a QueryService client exposing the RPC methods", () => {
+    const client = createQueryClient("http://localhost:4780");
+    expect(typeof client.queryRange).toBe("function");
+  });
+
   it("re-exports generated schemas and enums", () => {
     expect(ValueKind.F64).toBe(1);
     expect(SubscribeRequestSchema.typeName).toBe("gantry.v1.SubscribeRequest");
     expect(LiveService.typeName).toBe("gantry.v1.LiveService");
     expect(ExperimentService.typeName).toBe("gantry.v1.ExperimentService");
+    expect(QueryService.typeName).toBe("gantry.v1.QueryService");
     expect(StartExperimentRequestSchema.typeName).toBe("gantry.v1.StartExperimentRequest");
+    expect(QueryRangeRequestSchema.typeName).toBe("gantry.v1.QueryRangeRequest");
   });
 });

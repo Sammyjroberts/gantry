@@ -3,14 +3,18 @@
 // pitch do in the last 40 seconds" against a running engine.
 //
 // The package is transport- and app-agnostic on purpose. It takes narrow
-// interfaces to the shared engine — a channel registry, a stream replayer, and
-// (optionally) a JetStream state reporter — and builds an MCP server whose
-// implementation name is "gantry-core". Edge mounts it today over the same HTTP
-// port it already serves; Backend will mount the SAME package later behind a
-// tenant-scoped OAuth 2.1 layer (see docs/MCP.md). The server here is
-// deliberately tenancy-free: isolation is the mounting app's job.
+// interfaces to the shared engine — a channel registry, a stream replayer, an
+// (optional) JetStream state reporter, and an (optional) experiments service —
+// and builds an MCP server whose implementation name is "gantry-core". Edge
+// mounts it today over the same HTTP port it already serves; Backend will mount
+// the SAME package later behind a tenant-scoped OAuth 2.1 layer (see
+// docs/MCP.md). The server here is deliberately tenancy-free: isolation is the
+// mounting app's job.
 //
-// All tools are read-only.
+// The read tools (list_channels, get_window, get_last, edge_status) are always
+// registered. The experiment write/read tools (start_experiment, stop_experiment,
+// list_experiments) are registered only when an Experiments implementation is
+// wired into Deps.
 package mcp
 
 import (
@@ -54,6 +58,20 @@ type StreamStater interface {
 	StreamState(ctx context.Context) (StreamState, error)
 }
 
+// Experiments is the narrow slice of the experiment CRUD engine the write tools
+// need. It is defined here (over the proto Experiment type) rather than imported
+// so the mcp package keeps no dependency on libs/go/experiments; that package's
+// *experiments.Service satisfies this interface directly. It is optional: a Deps
+// without one registers no experiment tools.
+type Experiments interface {
+	// Start begins an experiment now (startNs == 0). name is required.
+	Start(ctx context.Context, name, notes, deviceID string, startNs uint64) (*gantryv1.Experiment, error)
+	// Stop ends a running experiment now (endNs == 0).
+	Stop(ctx context.Context, id string, endNs uint64) (*gantryv1.Experiment, error)
+	// List returns experiments newest-first, optionally filtered to one device.
+	List(ctx context.Context, deviceID string) ([]*gantryv1.Experiment, error)
+}
+
 // StreamState is a transport-neutral snapshot of the telemetry stream.
 type StreamState struct {
 	Name      string `json:"name"`
@@ -73,6 +91,9 @@ type Deps struct {
 	Replay Replayer
 	// Stream reports stream state for edge_status (optional but recommended).
 	Stream StreamStater
+	// Experiments backs the experiment tools (optional). When nil, the
+	// start_experiment/stop_experiment/list_experiments tools are not registered.
+	Experiments Experiments
 	// StartedAt is when the hosting server came up, for uptime reporting. If
 	// zero, uptime is reported as 0.
 	StartedAt time.Time

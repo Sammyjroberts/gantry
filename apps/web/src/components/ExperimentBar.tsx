@@ -21,6 +21,8 @@ export interface ExperimentBarProps {
   onDelete: (id: string) => void;
   /** Zoom all charts to an experiment's [start, end] (epoch seconds). */
   onZoomTo: (startSec: number, endSec: number) => void;
+  /** Enter replay for an experiment's [start, end] (epoch seconds). */
+  onReplay: (id: string, startSec: number, endSec: number) => void;
 }
 
 type CsvFormat = "long" | "wide";
@@ -56,6 +58,7 @@ export function ExperimentBar({
   onUpdate,
   onDelete,
   onZoomTo,
+  onReplay,
 }: ExperimentBarProps) {
   const [name, setName] = useState("");
   const [open, setOpen] = useState(false);
@@ -194,10 +197,17 @@ export function ExperimentBar({
                   <div className="exp-row-main">
                     <button
                       className="exp-zoom"
-                      title="zoom charts to this run"
+                      title="view entire run"
                       onClick={() => onZoomTo(startSec, endSec)}
                     >
                       ⤢
+                    </button>
+                    <button
+                      className="exp-replay"
+                      title="replay this run"
+                      onClick={() => onReplay(exp.id, startSec, endSec)}
+                    >
+                      ▶
                     </button>
                     {editingName ? (
                       <input

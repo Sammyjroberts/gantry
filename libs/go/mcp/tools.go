@@ -38,6 +38,12 @@ func registerTools(s *mcpsdk.Server, d Deps) {
 		Name:        "edge_status",
 		Description: "Report engine uptime, telemetry stream stats (message/byte counts, first/last timestamps), and the device list with last-seen ages. Read-only.",
 	}, d.edgeStatus)
+
+	// Experiment tools are registered only when the hosting app wires an
+	// experiment engine into Deps.
+	if d.Experiments != nil {
+		registerExperimentTools(s, d)
+	}
 }
 
 // ---- list_channels ----
@@ -205,13 +211,13 @@ func renderWindowChannel(key collectKey, samples []sample, maxPoints int, m chan
 	kind := m.kind
 	numeric := true
 	for _, s := range samples {
-		if s.packet != "" {
-			packet = s.packet
+		if s.Packet != "" {
+			packet = s.Packet
 		}
 		if kind == gantryv1.ValueKind_VALUE_KIND_UNSPECIFIED {
-			kind = s.kind
+			kind = s.Kind
 		}
-		if !s.numeric {
+		if !s.Numeric {
 			numeric = false
 		}
 	}
@@ -226,7 +232,7 @@ func renderWindowChannel(key collectKey, samples []sample, maxPoints int, m chan
 			pts = pts[len(pts)-maxPoints:]
 		}
 		for _, s := range pts {
-			wc.TextPoints = append(wc.TextPoints, textPoint{TNs: s.tNs, Text: s.text})
+			wc.TextPoints = append(wc.TextPoints, textPoint{TNs: s.TNs, Text: s.Text})
 		}
 		return wc
 	}
@@ -307,20 +313,20 @@ func (d Deps) getLast(ctx context.Context, _ *mcpsdk.CallToolRequest, args getLa
 		key := collectKey{device: device, channel: name}
 		lv := lastValue{DeviceID: device, Channel: name, Packet: packet, Unit: unit, Kind: kindString(kind), Numeric: isNumericKind(kind)}
 		if s, ok := last[key]; ok {
-			lv.TNs = s.tNs
-			age := now.Sub(time.Unix(0, s.tNs)).Seconds()
+			lv.TNs = s.TNs
+			age := now.Sub(time.Unix(0, s.TNs)).Seconds()
 			if age < 0 {
 				age = 0
 			}
 			lv.AgeSeconds = &age
-			lv.Numeric = s.numeric
-			if s.numeric {
-				v := s.num
+			lv.Numeric = s.Numeric
+			if s.Numeric {
+				v := s.Num
 				lv.Value = &v
-				lv.Kind = kindString(s.kind)
+				lv.Kind = kindString(s.Kind)
 			} else {
-				lv.Text = s.text
-				lv.Kind = kindString(s.kind)
+				lv.Text = s.Text
+				lv.Kind = kindString(s.Kind)
 			}
 		} else {
 			lv.Stale = true
@@ -395,8 +401,8 @@ func (d Deps) edgeStatus(ctx context.Context, _ *mcpsdk.CallToolRequest, _ struc
 	lastSeen := map[string]int64{}
 	for key, samples := range coll.series {
 		for _, s := range samples {
-			if s.tNs > lastSeen[key.device] {
-				lastSeen[key.device] = s.tNs
+			if s.TNs > lastSeen[key.device] {
+				lastSeen[key.device] = s.TNs
 			}
 		}
 	}
@@ -430,13 +436,4 @@ func (d Deps) highWater(ctx context.Context) (uint64, bool, error) {
 		return 0, false, fmt.Errorf("stream state: %w", err)
 	}
 	return st.LastSeq, true, nil
-}
-
-func isNumericKind(k gantryv1.ValueKind) bool {
-	switch k {
-	case gantryv1.ValueKind_VALUE_KIND_F64, gantryv1.ValueKind_VALUE_KIND_I64, gantryv1.ValueKind_VALUE_KIND_BOOL:
-		return true
-	default:
-		return false
-	}
 }

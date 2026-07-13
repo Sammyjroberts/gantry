@@ -53,7 +53,9 @@ message RawPoint {
 }
 
 message Bucket {
-  // Bucket start time.
+  // Representative time: the mean timestamp of the samples in the bucket
+  // (plots at the data's center of mass; empty bins are omitted entirely,
+  // so gaps in the source data stay visible).
   fixed64 t_ns = 1;
   double min = 2;
   double max = 3;

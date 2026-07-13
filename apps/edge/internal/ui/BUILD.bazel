@@ -5,9 +5,9 @@ go_library(
     srcs = ["embed.go"],
     embedsrcs = [
         "dist/index.html",
-        "dist/assets/index-Czfyrqta.css",
-        "dist/assets/index-DD2kQW7m.js",
-        "dist/assets/index-DD2kQW7m.js.map",
+        "dist/assets/index-Br2r6Cn2.css",
+        "dist/assets/index-CgLLZQWn.js",
+        "dist/assets/index-CgLLZQWn.js.map",
     ],
     importpath = "github.com/Sammyjroberts/gantry/apps/edge/internal/ui",
     visibility = ["//apps/edge:__subpackages__"],

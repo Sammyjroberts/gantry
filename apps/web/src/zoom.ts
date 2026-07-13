@@ -176,3 +176,61 @@ export function setRange(
 export function backToLive(): ZoomState {
   return { mode: "live", min: 0, max: 0 };
 }
+
+/**
+ * The visible width, in seconds, a state currently occupies. In live mode this
+ * is `windowSec`; in inspect mode it is the fixed range's own width. Used by the
+ * toolbar step buttons and range readout.
+ */
+export function currentWidth(state: ZoomState, windowSec: number): number {
+  return state.mode === "live" ? windowSec : Math.max(MIN_WINDOW_SEC, state.max - state.min);
+}
+
+/**
+ * The result of choosing a relative preset (10s / 1m / 1h …). A preset always
+ * returns to LIVE follow at the requested width — even from inspect mode — so
+ * the operator snaps back to the moving edge. Width is carried out separately
+ * because `windowSec` is App-owned state that drives {@link resolveWindow}.
+ */
+export interface PresetResult {
+  zoom: ZoomState;
+  windowSec: number;
+}
+
+/** Apply a relative preset: live follow with the given window width. */
+export function applyPreset(windowSec: number): PresetResult {
+  const w = Math.max(MIN_WINDOW_SEC, windowSec);
+  return { zoom: backToLive(), windowSec: w };
+}
+
+/**
+ * Step the window by its own width. `dir = +1` moves later (toward now), `-1`
+ * earlier. Always lands in inspect mode; stepping forward from live anchors an
+ * inspect window at the live edge (the right edge clamps to `now`). Width is
+ * preserved and clamped to the buffer extent (see {@link panBy}).
+ */
+export function stepBy(
+  state: ZoomState,
+  windowSec: number,
+  bounds: Bounds,
+  dir: 1 | -1,
+): ZoomState {
+  const width = currentWidth(state, windowSec);
+  return panBy(state, windowSec, bounds, dir * width);
+}
+
+/**
+ * Zoom out about the window's own center by `factor` (default ×2). Convenience
+ * over {@link zoomAt} for the toolbar's zoom-out button — no cursor needed.
+ * Always transitions to inspect mode.
+ */
+export function zoomOutBy(
+  state: ZoomState,
+  windowSec: number,
+  bounds: Bounds,
+  factor = 2,
+): ZoomState {
+  const [min, max] = currentRange(state, windowSec, bounds);
+  const center = (min + max) / 2;
+  return zoomAt(state, windowSec, bounds, center, factor);
+}

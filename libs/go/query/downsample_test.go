@@ -1,14 +1,14 @@
-package mcp
+package query
 
 import (
 	"testing"
 	"time"
 )
 
-func mkSamples(vals []float64, t0, step int64) []sample {
-	out := make([]sample, len(vals))
+func mkSamples(vals []float64, t0, step int64) []Sample {
+	out := make([]Sample, len(vals))
 	for i, v := range vals {
-		out[i] = sample{tNs: t0 + int64(i)*step, num: v, numeric: true}
+		out[i] = Sample{TNs: t0 + int64(i)*step, Num: v, Numeric: true}
 	}
 	return out
 }
@@ -16,9 +16,9 @@ func mkSamples(vals []float64, t0, step int64) []sample {
 func TestDownsampleReducesToBucketCap(t *testing.T) {
 	samples := mkSamples(make([]float64, 1000), 0, 10)
 	for i := range samples {
-		samples[i].num = float64(i)
+		samples[i].Num = float64(i)
 	}
-	buckets := downsample(samples, 50)
+	buckets := Downsample(samples, 50)
 	if len(buckets) == 0 || len(buckets) > 50 {
 		t.Fatalf("got %d buckets, want 1..50", len(buckets))
 	}
@@ -41,13 +41,13 @@ func TestDownsampleReducesToBucketCap(t *testing.T) {
 
 func TestDownsampleAggregatesMinMaxMean(t *testing.T) {
 	// Two clearly separated time clusters -> two buckets with known stats.
-	samples := []sample{
-		{tNs: 0, num: 2, numeric: true},
-		{tNs: 1, num: 4, numeric: true}, // cluster A: min2 max4 mean3
-		{tNs: 1000, num: 10, numeric: true},
-		{tNs: 1001, num: 20, numeric: true}, // cluster B: min10 max20 mean15
+	samples := []Sample{
+		{TNs: 0, Num: 2, Numeric: true},
+		{TNs: 1, Num: 4, Numeric: true}, // cluster A: min2 max4 mean3
+		{TNs: 1000, Num: 10, Numeric: true},
+		{TNs: 1001, Num: 20, Numeric: true}, // cluster B: min10 max20 mean15
 	}
-	buckets := downsample(samples, 2)
+	buckets := Downsample(samples, 2)
 	if len(buckets) != 2 {
 		t.Fatalf("got %d buckets, want 2", len(buckets))
 	}
@@ -61,12 +61,12 @@ func TestDownsampleAggregatesMinMaxMean(t *testing.T) {
 
 func TestDownsampleDegenerateSpan(t *testing.T) {
 	// All samples share a timestamp -> single collapsed bucket.
-	samples := []sample{
-		{tNs: 5, num: 1, numeric: true},
-		{tNs: 5, num: 3, numeric: true},
-		{tNs: 5, num: 2, numeric: true},
+	samples := []Sample{
+		{TNs: 5, Num: 1, Numeric: true},
+		{TNs: 5, Num: 3, Numeric: true},
+		{TNs: 5, Num: 2, Numeric: true},
 	}
-	buckets := downsample(samples, 10)
+	buckets := Downsample(samples, 10)
 	if len(buckets) != 1 {
 		t.Fatalf("got %d buckets, want 1", len(buckets))
 	}
@@ -76,8 +76,8 @@ func TestDownsampleDegenerateSpan(t *testing.T) {
 }
 
 func TestDownsampleEmpty(t *testing.T) {
-	if got := downsample(nil, 10); got != nil {
-		t.Fatalf("downsample(nil) = %v, want nil", got)
+	if got := Downsample(nil, 10); got != nil {
+		t.Fatalf("Downsample(nil) = %v, want nil", got)
 	}
 }
 
@@ -85,24 +85,16 @@ func TestDownsampleTimestampNoOverflow(t *testing.T) {
 	// Real Unix-nanosecond timestamps summed naively overflow int64 after a few
 	// samples; the bucket timestamp must stay within the sample range.
 	base := time.Now().UnixNano()
-	samples := make([]sample, 20)
+	samples := make([]Sample, 20)
 	for i := range samples {
-		samples[i] = sample{tNs: base + int64(i)*1_000_000, num: float64(i), numeric: true}
+		samples[i] = Sample{TNs: base + int64(i)*1_000_000, Num: float64(i), Numeric: true}
 	}
-	buckets := downsample(samples, 1)
+	buckets := Downsample(samples, 1)
 	if len(buckets) != 1 {
 		t.Fatalf("got %d buckets, want 1", len(buckets))
 	}
-	tMin, tMax := samples[0].tNs, samples[len(samples)-1].tNs
+	tMin, tMax := samples[0].TNs, samples[len(samples)-1].TNs
 	if buckets[0].TNs < tMin || buckets[0].TNs > tMax {
 		t.Fatalf("bucket t_ns %d outside [%d,%d] (overflow?)", buckets[0].TNs, tMin, tMax)
-	}
-}
-
-func TestNearestSuggests(t *testing.T) {
-	cands := []string{"pitch_deg", "roll_deg", "yaw_deg", "speed"}
-	got := nearest("ptch_deg", cands, 3)
-	if len(got) == 0 || got[0] != "pitch_deg" {
-		t.Fatalf("nearest(ptch_deg) = %v, want pitch_deg first", got)
 	}
 }

@@ -162,7 +162,9 @@ export const RawPointSchema: GenMessage<RawPoint> = /*@__PURE__*/
  */
 export type Bucket = Message<"gantry.v1.Bucket"> & {
   /**
-   * Bucket start time.
+   * Representative time: the mean timestamp of the samples in the bucket
+   * (plots at the data's center of mass; empty bins are omitted entirely,
+   * so gaps in the source data stay visible).
    *
    * @generated from field: fixed64 t_ns = 1;
    */

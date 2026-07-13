@@ -303,7 +303,9 @@ func (x *RawPoint) GetText() string {
 
 type Bucket struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Bucket start time.
+	// Representative time: the mean timestamp of the samples in the bucket
+	// (plots at the data's center of mass; empty bins are omitted entirely,
+	// so gaps in the source data stay visible).
 	TNs           uint64  `protobuf:"fixed64,1,opt,name=t_ns,json=tNs,proto3" json:"t_ns,omitempty"`
 	Min           float64 `protobuf:"fixed64,2,opt,name=min,proto3" json:"min,omitempty"`
 	Max           float64 `protobuf:"fixed64,3,opt,name=max,proto3" json:"max,omitempty"`

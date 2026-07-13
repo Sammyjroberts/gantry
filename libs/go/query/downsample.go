@@ -1,7 +1,7 @@
-package mcp
+package query
 
-// bucket is one downsampled aggregate over a time span of a numeric series.
-type bucket struct {
+// Bucket is one downsampled aggregate over a time span of a numeric series.
+type Bucket struct {
 	TNs   int64   `json:"t_ns"` // mean timestamp of samples in the bucket
 	Min   float64 `json:"min"`
 	Max   float64 `json:"max"`
@@ -9,38 +9,38 @@ type bucket struct {
 	Count int     `json:"count"`
 }
 
-// rawPoint is one (timestamp, value) pair for a numeric series returned without
+// RawPoint is one (timestamp, value) pair for a numeric series returned without
 // downsampling.
-type rawPoint struct {
+type RawPoint struct {
 	TNs int64   `json:"t_ns"`
 	V   float64 `json:"v"`
 }
 
-// downsample reduces a time-ordered numeric series to at most maxPoints buckets.
+// Downsample reduces a time-ordered numeric series to at most maxPoints buckets.
 // Samples are partitioned into maxPoints equal-width time bins spanning
 // [tMin, tMax]; each non-empty bin becomes one (t, min, max, mean, count)
 // bucket, where t is the mean timestamp of its samples. Empty bins are omitted,
 // so the result has at most maxPoints buckets and preserves gaps. The input must
-// be sorted ascending by time (collection.sortedByTime guarantees this).
+// be sorted ascending by time (Collection.SortedByTime guarantees this).
 //
 // maxPoints <= 0 is treated as 1.
-func downsample(samples []sample, maxPoints int) []bucket {
+func Downsample(samples []Sample, maxPoints int) []Bucket {
 	if maxPoints < 1 {
 		maxPoints = 1
 	}
 	if len(samples) == 0 {
 		return nil
 	}
-	tMin := samples[0].tNs
-	tMax := samples[len(samples)-1].tNs
+	tMin := samples[0].TNs
+	tMax := samples[len(samples)-1].TNs
 	span := tMax - tMin
 
 	// Degenerate span (all samples share a timestamp): collapse to one bucket.
 	if span <= 0 {
-		return []bucket{aggregate(samples)}
+		return []Bucket{aggregate(samples)}
 	}
 
-	out := make([]bucket, 0, maxPoints)
+	out := make([]Bucket, 0, maxPoints)
 	binOf := func(t int64) int {
 		// Map t in [tMin, tMax] to [0, maxPoints-1].
 		idx := int((t - tMin) * int64(maxPoints) / span)
@@ -51,9 +51,9 @@ func downsample(samples []sample, maxPoints int) []bucket {
 	}
 
 	start := 0
-	curBin := binOf(samples[0].tNs)
+	curBin := binOf(samples[0].TNs)
 	for i := 1; i < len(samples); i++ {
-		b := binOf(samples[i].tNs)
+		b := binOf(samples[i].TNs)
 		if b != curBin {
 			out = append(out, aggregate(samples[start:i]))
 			start = i
@@ -68,33 +68,33 @@ func downsample(samples []sample, maxPoints int) []bucket {
 // numeric values. The bucket timestamp is the mean of the samples' timestamps,
 // computed as base + mean(delta) so summing absolute Unix-nanosecond timestamps
 // (which overflow int64 after only a handful of samples) is avoided.
-func aggregate(samples []sample) bucket {
-	b := bucket{Count: len(samples)}
-	b.Min = samples[0].num
-	b.Max = samples[0].num
-	base := samples[0].tNs
+func aggregate(samples []Sample) Bucket {
+	b := Bucket{Count: len(samples)}
+	b.Min = samples[0].Num
+	b.Max = samples[0].Num
+	base := samples[0].TNs
 	var sum float64
 	var dsum int64
 	for _, s := range samples {
-		if s.num < b.Min {
-			b.Min = s.num
+		if s.Num < b.Min {
+			b.Min = s.Num
 		}
-		if s.num > b.Max {
-			b.Max = s.num
+		if s.Num > b.Max {
+			b.Max = s.Num
 		}
-		sum += s.num
-		dsum += s.tNs - base
+		sum += s.Num
+		dsum += s.TNs - base
 	}
 	b.Mean = sum / float64(len(samples))
 	b.TNs = base + dsum/int64(len(samples))
 	return b
 }
 
-// rawPoints projects a numeric series to (t, v) pairs.
-func rawPoints(samples []sample) []rawPoint {
-	out := make([]rawPoint, 0, len(samples))
+// RawPoints projects a numeric series to (t, v) pairs.
+func RawPoints(samples []Sample) []RawPoint {
+	out := make([]RawPoint, 0, len(samples))
 	for _, s := range samples {
-		out = append(out, rawPoint{TNs: s.tNs, V: s.num})
+		out = append(out, RawPoint{TNs: s.TNs, V: s.Num})
 	}
 	return out
 }
