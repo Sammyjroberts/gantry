@@ -5,11 +5,14 @@ import {
 } from "@connectrpc/connect-web";
 import { LiveService } from "./gen/gantry/v1/live_pb";
 import { IngestService } from "./gen/gantry/v1/ingest_pb";
+import { ExperimentService } from "./gen/gantry/v1/experiment_pb";
 
 /** Typed client for the live telemetry (streaming) service. */
 export type LiveClient = Client<typeof LiveService>;
 /** Typed client for the ingest service. */
 export type IngestClient = Client<typeof IngestService>;
+/** Typed client for the experiment (test-run) service. */
+export type ExperimentClient = Client<typeof ExperimentService>;
 
 /**
  * Extra transport options, minus `baseUrl` which is passed positionally.
@@ -37,4 +40,18 @@ export function createIngestClient(
   options: ClientOptions = {},
 ): IngestClient {
   return createClient(IngestService, createConnectTransport({ baseUrl, ...options }));
+}
+
+/**
+ * Create a typed ExperimentService client bound to `baseUrl`.
+ *
+ * Same origin/base contract as {@link createLiveClient}: Connect appends the
+ * `/gantry.v1.ExperimentService/...` RPC path. CSV export is a plain HTTP GET
+ * (see `/export/experiments/{id}.csv`), not an RPC — build that URL directly.
+ */
+export function createExperimentClient(
+  baseUrl: string,
+  options: ClientOptions = {},
+): ExperimentClient {
+  return createClient(ExperimentService, createConnectTransport({ baseUrl, ...options }));
 }

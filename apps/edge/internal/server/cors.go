@@ -45,13 +45,16 @@ var allowedHeaders = []string{
 	"Message-Type",
 }
 
-// Response headers a browser client needs to read back (gRPC/Connect trailers).
+// Response headers a browser client needs to read back (gRPC/Connect trailers,
+// plus Content-Disposition so a fetch-based CSV download can recover the
+// server-suggested filename).
 var exposedHeaders = []string{
 	"Grpc-Status",
 	"Grpc-Message",
 	"Grpc-Status-Details-Bin",
 	"Connect-Content-Encoding",
 	"Connect-Accept-Encoding",
+	"Content-Disposition",
 }
 
 func isLocalOrigin(origin string) bool {

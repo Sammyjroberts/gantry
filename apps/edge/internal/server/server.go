@@ -5,13 +5,17 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/Sammyjroberts/gantry/apps/edge/internal/ui"
 	"github.com/Sammyjroberts/gantry/gen/go/gantry/v1/gantryv1connect"
+	"github.com/Sammyjroberts/gantry/libs/go/edgedb"
+	"github.com/Sammyjroberts/gantry/libs/go/experiments"
 	"github.com/Sammyjroberts/gantry/libs/go/ingest"
 	"github.com/Sammyjroberts/gantry/libs/go/mcp"
 	"github.com/Sammyjroberts/gantry/libs/go/registry"
@@ -24,12 +28,14 @@ import (
 type App struct {
 	bus     *stream.Bus
 	engine  *ingest.Engine
+	db      *sql.DB
 	handler http.Handler
 	srv     *http.Server
 }
 
 // New builds an Edge app with an embedded NATS server storing JetStream data in
-// storeDir and provisions the TLM stream.
+// storeDir, provisions the TLM stream, and opens (migrating on first boot) the
+// persistent SQLite store at <storeDir>/edge.db.
 func New(ctx context.Context, storeDir string) (*App, error) {
 	bus, err := stream.NewEmbedded(storeDir)
 	if err != nil {
@@ -40,14 +46,29 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 		return nil, err
 	}
 
+	db, err := edgedb.Open(ctx, filepath.Join(storeDir, "edge.db"))
+	if err != nil {
+		bus.Close()
+		return nil, err
+	}
+
 	reg := registry.New()
 	engine := ingest.New(bus, reg)
+	expSvc := experiments.NewService(db)
+	expReplayer := experiments.NewReplayer(bus)
 
 	mux := http.NewServeMux()
 	ingestPath, ingestHandler := gantryv1connect.NewIngestServiceHandler(&ingestService{engine: engine})
 	livePath, liveHandler := gantryv1connect.NewLiveServiceHandler(&liveService{bus: bus, reg: reg})
+	expPath, expHandler := gantryv1connect.NewExperimentServiceHandler(experiments.NewHandler(expSvc))
 	mux.Handle(ingestPath, ingestHandler)
 	mux.Handle(livePath, liveHandler)
+	mux.Handle(expPath, expHandler)
+
+	// CSV export over plain HTTP (browser- and script-friendly): see
+	// proto/gantry/v1/experiment.proto. Streams the experiment's stream-replay
+	// window as CSV.
+	mux.Handle(exportRoute, &exportHandler{svc: expSvc, replayer: expReplayer})
 
 	// MCP over streamable HTTP at /mcp, on this same port. It shares the engine
 	// (registry + stream bus) read-only with the ConnectRPC handlers; the
@@ -70,7 +91,7 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	h2s := &http2.Server{}
 	handler = h2c.NewHandler(handler, h2s)
 
-	return &App{bus: bus, engine: engine, handler: handler}, nil
+	return &App{bus: bus, engine: engine, db: db, handler: handler}, nil
 }
 
 // Handler returns the root HTTP handler (used by tests).
@@ -88,11 +109,16 @@ func (a *App) Serve(ln net.Listener) error {
 	return nil
 }
 
-// Shutdown drains the HTTP server, then stops NATS.
+// Shutdown drains the HTTP server, then closes the persistent store and NATS.
 func (a *App) Shutdown(ctx context.Context) error {
 	var err error
 	if a.srv != nil {
 		err = a.srv.Shutdown(ctx)
+	}
+	if a.db != nil {
+		if cerr := a.db.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
 	}
 	a.bus.Close()
 	return err

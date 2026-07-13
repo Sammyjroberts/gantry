@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { createLiveClient, createIngestClient } from "./clients";
-import { ValueKind, SubscribeRequestSchema, LiveService } from "./index";
+import { createLiveClient, createIngestClient, createExperimentClient } from "./clients";
+import {
+  ValueKind,
+  SubscribeRequestSchema,
+  LiveService,
+  ExperimentService,
+  StartExperimentRequestSchema,
+} from "./index";
 
 describe("api-client factories", () => {
   it("creates a LiveService client exposing the RPC methods", () => {
@@ -15,9 +21,20 @@ describe("api-client factories", () => {
     expect(typeof client.registerChannels).toBe("function");
   });
 
+  it("creates an ExperimentService client exposing the RPC methods", () => {
+    const client = createExperimentClient("http://localhost:4780");
+    expect(typeof client.startExperiment).toBe("function");
+    expect(typeof client.stopExperiment).toBe("function");
+    expect(typeof client.listExperiments).toBe("function");
+    expect(typeof client.updateExperiment).toBe("function");
+    expect(typeof client.deleteExperiment).toBe("function");
+  });
+
   it("re-exports generated schemas and enums", () => {
     expect(ValueKind.F64).toBe(1);
     expect(SubscribeRequestSchema.typeName).toBe("gantry.v1.SubscribeRequest");
     expect(LiveService.typeName).toBe("gantry.v1.LiveService");
+    expect(ExperimentService.typeName).toBe("gantry.v1.ExperimentService");
+    expect(StartExperimentRequestSchema.typeName).toBe("gantry.v1.StartExperimentRequest");
   });
 });
