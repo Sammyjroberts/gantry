@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package gantry.v1;
+
+import "gantry/v1/telemetry.proto";
+
+// Historical range queries over the stream's retention window. Serves the
+// console's time-range navigation (Grafana-style) and any programmatic reads.
+// Backed by bounded stream replay today; the segment/columnar store extends
+// reach beyond retention at a later milestone (same contract).
+service QueryService {
+  // Fetch channels over [start_ns, end_ns]. Channels with more samples than
+  // max_points_per_channel come back downsampled into min/max/mean buckets
+  // (envelope-preserving); smaller results come back raw. Zooming in and
+  // re-querying yields progressively higher resolution.
+  rpc QueryRange(QueryRangeRequest) returns (QueryRangeResponse);
+}
+
+message QueryRangeRequest {
+  // Empty = all devices.
+  string device_id = 1;
+  // Channel names; empty = all channels.
+  repeated string channels = 2;
+  fixed64 start_ns = 3;
+  fixed64 end_ns = 4;
+  // Default (0) = 500. Hard-capped server-side.
+  uint32 max_points_per_channel = 5;
+}
+
+message QueryRangeResponse {
+  repeated ChannelSeries series = 1;
+  // True if the requested range extends beyond stream retention; data before
+  // the retention horizon is absent (not an error).
+  bool truncated_by_retention = 2;
+}
+
+// One series, identified by (device_id, packet, channel).
+message ChannelSeries {
+  string device_id = 1;
+  string packet = 2;
+  string channel = 3;
+  ValueKind kind = 4;
+  // Exactly one of raw/buckets is populated.
+  repeated RawPoint raw = 5;
+  repeated Bucket buckets = 6;
+}
+
+message RawPoint {
+  fixed64 t_ns = 1;
+  // Numeric kinds (f64/i64/bool as 0|1) use value; text/raw kinds use text.
+  double value = 2;
+  string text = 3;
+}
+
+message Bucket {
+  // Bucket start time.
+  fixed64 t_ns = 1;
+  double min = 2;
+  double max = 3;
+  double mean = 4;
+  uint32 count = 5;
+}
