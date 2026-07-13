@@ -16,14 +16,24 @@ import (
 // these bound how long a tool call waits for a replay to complete, not how much
 // data it can return.
 const (
-	// drainIdle ends a drain once no frame has arrived for this long: the replay
-	// backlog is considered flushed. Needed because a filtered subscription may
-	// never observe the stream's global last sequence (that message can be on a
-	// subject we did not select), so a high-water mark alone cannot terminate.
-	drainIdle = 400 * time.Millisecond
+	// drainFirstFrame is how long to wait for the FIRST replayed frame before
+	// concluding the window is genuinely empty. Consumer creation + replay
+	// startup can exceed the between-frame idle gap under ingest load (seen at
+	// 500Hz: a short gap here returned empty results nondeterministically), so
+	// the empty-window verdict gets its own generous deadline.
+	drainFirstFrame = 3 * time.Second
+	// drainIdle ends a drain once frames HAVE been flowing and none has arrived
+	// for this long: the replay backlog is considered flushed. Needed because a
+	// filtered subscription may never observe the stream's global last sequence
+	// (that message can be on a subject we did not select), so a high-water mark
+	// alone cannot terminate. Kept well above scheduler/GC hiccups — a 400ms gap
+	// once truncated a 1200-frame replay mid-backlog under CPU load. Active
+	// channels still terminate promptly via the high-water check; idle only
+	// decides quiet-channel queries, where an extra second is acceptable.
+	drainIdle = 1500 * time.Millisecond
 	// drainCap is the absolute ceiling on a single collection, a safety valve
 	// against a firehose device keeping the drain alive with live frames.
-	drainCap = 6 * time.Second
+	drainCap = 10 * time.Second
 	// maxCollectPoints caps total points buffered across all channels in one
 	// call, bounding memory on a very wide/dense window before downsampling.
 	maxCollectPoints = 400_000
@@ -83,7 +93,10 @@ func collectWindow(ctx context.Context, rep Replayer, highWater uint64, hasHighW
 		return nil, fmt.Errorf("replay subscribe: %w", err)
 	}
 
-	idle := time.NewTimer(drainIdle)
+	// One timer, two phases: until the first frame arrives it runs on the long
+	// first-frame deadline; after that, each frame re-arms it with the shorter
+	// between-frame idle gap.
+	idle := time.NewTimer(drainFirstFrame)
 	defer idle.Stop()
 	capTimer := time.NewTimer(drainCap)
 	defer capTimer.Stop()
