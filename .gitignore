@@ -37,6 +37,7 @@ data/
 .env
 .env.local
 
-# Local-only working dirs (benchmarks/scratch live in a separate private repo)
+# Local-only working dirs (benchmarks/scratch/design docs live in a separate private repo)
 /test_eav/
 /lab/
+/docs/

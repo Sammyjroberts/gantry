@@ -8,7 +8,7 @@ multitenant cloud — one tool for design, test, and production.
 - **Web** — browser console (live plots, 3D robot viz), served by Edge locally and by Backend in the cloud.
 - **Backend** — multitenant cloud ingest, storage, and fleet sync.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design and decision log.
+Contracts live in `proto/gantry/v1`; the shared engine in `libs/go` and `libs/ts`.
 
 ## Quick start
 
