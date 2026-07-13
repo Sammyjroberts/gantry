@@ -7,6 +7,11 @@ set windows-shell := ["C:/Program Files/Git/bin/bash.exe", "-c"]
 default:
     @just --list
 
+# One-time repo setup: enable tracked git hooks (Conventional Commits enforcement)
+setup:
+    git config core.hooksPath .githooks
+    @echo "Git hooks enabled (.githooks). See .claude/skills/git/SKILL.md"
+
 # Regenerate code from proto/ (Go + TS). Rust generates via build.rs in sdk/.
 gen:
     buf lint
