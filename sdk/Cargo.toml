@@ -9,6 +9,7 @@ members = [
     "gantry-wire",
     "gantry-tlm",
     "gantry-tlm-derive",
+    "gantry-serial-agent",
 ]
 
 [workspace.package]

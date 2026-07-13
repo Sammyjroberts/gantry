@@ -1,0 +1,40 @@
+[package]
+name = "gantry-serial-agent"
+description = "Host-side collector: turns a `docs/WIRE.md` device byte stream (USB-CDC/UART/file spool) into gantry.v1 ingest calls against an Edge/Backend endpoint. Std, thread-free, no async runtime."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "gantry-serial-agent"
+path = "src/main.rs"
+
+[lib]
+name = "gantry_serial_agent"
+path = "src/lib.rs"
+
+[dependencies]
+# The wire decoder we consume (needs the `std`/`alloc` decoder half).
+gantry-wire = { path = "../gantry-wire", version = "0.1.0", features = ["std"] }
+# SDK core: the `Transport` trait + `TransportError` + `RetryConfig`, the bounded
+# drop-oldest `Buffer`, the proto message types, and `Value` constructors. Reused
+# rather than reinvented (data-model == transport seam per ARCHITECTURE.md).
+gantry-connect = { path = "../gantry-connect", version = "0.1.0" }
+gantry-connect-proto = { path = "../gantry-connect-proto", version = "0.1.0" }
+# Default Connect/HTTP transport we forward through (ureq, blocking, no tokio).
+gantry-transport-http = { path = "../gantry-transport-http", version = "0.1.0" }
+# Serial port I/O (blocking, cross-platform; a COM port on Windows).
+serialport = "4"
+# Lean CLI.
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+# Synthesize a real device session in-process for the translation-core tests.
+gantry-tlm = { path = "../gantry-tlm", version = "0.1.0", features = ["enabled"] }
+critical-section = { version = "1", features = ["std"] }
+tempfile = "3"
+# The optional, #[ignore]d end-to-end test POSTs JSON to the live Edge.
+ureq = "2"
+serde_json = "1"

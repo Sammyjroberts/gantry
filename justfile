@@ -65,6 +65,18 @@ test-tlm:
     cd sdk && cargo test -p gantry-wire -p gantry-tlm
     cd sdk && cargo test -p gantry-tlm --features enabled
 
+# Forward a live serial device (robot USB-CDC) to a local Edge
+serial-agent port baud="115200" endpoint="http://localhost:4780":
+    cd sdk && cargo run -p gantry-serial-agent --release -- --port {{port}} --baud {{baud}} --endpoint {{endpoint}}
+
+# Replay a spool/black-box recording into Edge (a file IS a paused stream)
+serial-replay file endpoint="http://localhost:4780" rate="max":
+    cd sdk && cargo run -p gantry-serial-agent --release -- --from-file {{file}} --endpoint {{endpoint}} --rate {{rate}}
+
+# Serial agent e2e against a freshly built Edge (needs Go on PATH)
+test-serial-e2e:
+    cd sdk && cargo test -p gantry-serial-agent --test e2e_edge -- --ignored --nocapture
+
 # Prove the MCU story: no_std builds (needs `rustup target add thumbv7em-none-eabi`)
 sdk-nostd:
     cd sdk && cargo build -p gantry-wire --no-default-features --target thumbv7em-none-eabi
