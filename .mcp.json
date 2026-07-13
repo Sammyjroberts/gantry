@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "gantry": {
+      "type": "http",
+      "url": "http://localhost:4780/mcp"
+    }
+  }
+}
