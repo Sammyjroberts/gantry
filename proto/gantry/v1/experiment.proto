@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package gantry.v1;
+
+// Experiments ("tests", "runs"): named time ranges over the telemetry stream,
+// used to block off a maneuver/test for review and export. Metadata only —
+// frames are not copied; the range indexes into the stream (and later, the
+// Parquet segment store).
+//
+// EXPORT: CSV download is plain HTTP, easier for browsers and scripts than
+// RPC: GET /export/experiments/{id}.csv[?channels=a,b&format=long|wide]
+// Long format (default): ts_ns,ts_iso,device_id,packet,channel,kind,value
+// V1 LIMITATION: export reads the stream replay window; experiments older
+// than stream retention export empty until the segment store milestone.
+service ExperimentService {
+  // Begin an experiment now (or at explicit start_ns). Multiple experiments
+  // may run concurrently (e.g. one per device).
+  rpc StartExperiment(StartExperimentRequest) returns (StartExperimentResponse);
+  // End a running experiment now (or at explicit end_ns).
+  rpc StopExperiment(StopExperimentRequest) returns (StopExperimentResponse);
+  rpc ListExperiments(ListExperimentsRequest) returns (ListExperimentsResponse);
+  // Update name/notes after the fact.
+  rpc UpdateExperiment(UpdateExperimentRequest) returns (UpdateExperimentResponse);
+  rpc DeleteExperiment(DeleteExperimentRequest) returns (DeleteExperimentResponse);
+}
+
+message Experiment {
+  string id = 1;
+  string name = 2;
+  string notes = 3;
+  // Optional device filter; empty means bench-wide (all devices).
+  string device_id = 4;
+  fixed64 start_ns = 5;
+  // 0 while running.
+  fixed64 end_ns = 6;
+  fixed64 created_ns = 7;
+}
+
+message StartExperimentRequest {
+  string name = 1;
+  string notes = 2;
+  string device_id = 3;
+  // 0 = now. Explicit values allow marking a range after the fact.
+  fixed64 start_ns = 4;
+}
+
+message StartExperimentResponse {
+  Experiment experiment = 1;
+}
+
+message StopExperimentRequest {
+  string id = 1;
+  // 0 = now.
+  fixed64 end_ns = 2;
+}
+
+message StopExperimentResponse {
+  Experiment experiment = 1;
+}
+
+message ListExperimentsRequest {
+  // Empty = all devices.
+  string device_id = 1;
+}
+
+message ListExperimentsResponse {
+  repeated Experiment experiments = 1;
+}
+
+message UpdateExperimentRequest {
+  string id = 1;
+  string name = 2;
+  string notes = 3;
+}
+
+message UpdateExperimentResponse {
+  Experiment experiment = 1;
+}
+
+message DeleteExperimentRequest {
+  string id = 1;
+}
+
+message DeleteExperimentResponse {}
