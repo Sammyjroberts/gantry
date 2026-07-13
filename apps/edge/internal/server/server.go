@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/Sammyjroberts/gantry/apps/edge/internal/ui"
 	"github.com/Sammyjroberts/gantry/gen/go/gantry/v1/gantryv1connect"
 	"github.com/Sammyjroberts/gantry/libs/go/ingest"
+	"github.com/Sammyjroberts/gantry/libs/go/mcp"
 	"github.com/Sammyjroberts/gantry/libs/go/registry"
 	"github.com/Sammyjroberts/gantry/libs/go/stream"
 	"golang.org/x/net/http2"
@@ -46,6 +48,18 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	livePath, liveHandler := gantryv1connect.NewLiveServiceHandler(&liveService{bus: bus, reg: reg})
 	mux.Handle(ingestPath, ingestHandler)
 	mux.Handle(livePath, liveHandler)
+
+	// MCP over streamable HTTP at /mcp, on this same port. It shares the engine
+	// (registry + stream bus) read-only with the ConnectRPC handlers; the
+	// exact-match "/mcp" pattern keeps it clear of both the RPC service prefixes
+	// and the "/" UI fallback. The shared "gantry-core" server package is mounted
+	// here by Edge and later by Backend behind tenancy (see docs/MCP.md).
+	mux.Handle("/mcp", mcp.NewHandler(mcp.Deps{
+		Channels:  reg,
+		Replay:    bus,
+		Stream:    mcp.BusStreamStater(bus),
+		StartedAt: time.Now(),
+	}))
 
 	// Static UI at "/" (ServeMux routes the more specific RPC prefixes first).
 	mux.Handle("/", http.FileServer(http.FS(ui.FS())))

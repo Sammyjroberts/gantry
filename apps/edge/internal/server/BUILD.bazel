@@ -14,6 +14,7 @@ go_library(
         "//gen/go/gantry/v1:gantry",
         "//gen/go/gantry/v1/gantryv1connect",
         "//libs/go/ingest",
+        "//libs/go/mcp",
         "//libs/go/registry",
         "//libs/go/stream",
         "@com_connectrpc_connect//:go_default_library",
@@ -24,12 +25,16 @@ go_library(
 
 go_test(
     name = "server_test",
-    srcs = ["e2e_test.go"],
+    srcs = [
+        "e2e_test.go",
+        "mcp_e2e_test.go",
+    ],
     deps = [
         ":server",
         "//gen/go/gantry/v1:gantry",
         "//gen/go/gantry/v1/gantryv1connect",
         "@com_connectrpc_connect//:go_default_library",
+        "@com_github_modelcontextprotocol_go_sdk//mcp:go_default_library",
         "@org_golang_x_net//http2:go_default_library",
     ],
 )
