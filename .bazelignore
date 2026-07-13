@@ -1,2 +1,3 @@
-# A scratch Python virtualenv that must never be part of any Bazel package graph.
+# Local-only working dirs that must never be part of any Bazel package graph.
 test_eav
+lab

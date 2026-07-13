@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "gantryv1connect",
     srcs = [
+        "experiment.connect.go",
         "ingest.connect.go",
         "live.connect.go",
     ],

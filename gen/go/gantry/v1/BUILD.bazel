@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "gantry",
     srcs = [
+        "experiment.pb.go",
         "ingest.pb.go",
         "live.pb.go",
         "telemetry.pb.go",
