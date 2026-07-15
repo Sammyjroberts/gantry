@@ -6,21 +6,27 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/Sammyjroberts/gantry/apps/bench/internal/ui"
+	"testing/fstest"
 )
 
 // TestSPAHandler covers the three routing outcomes: a real asset is served as a
 // file, a client-route deep link falls back to index.html with 200, and a
 // missing asset (a path with an extension) 404s.
+//
+// Hermetic on purpose: it runs against an in-memory FS, not the embedded
+// ui.FS() — the committed embed dir holds only the placeholder index.html
+// (real build assets are gitignored and appear locally after `just bench-release`),
+// so asserting against a real bundle filename passes locally and 404s in CI.
 func TestSPAHandler(t *testing.T) {
-	h, err := newSPAHandler(ui.FS())
+	fsys := fstest.MapFS{
+		"index.html":    {Data: []byte(`<!doctype html><html><body><div id="root"></div></body></html>`)},
+		"assets/app.js": {Data: []byte(`console.log("app")`)},
+	}
+	h, err := newSPAHandler(fsys)
 	if err != nil {
 		t.Fatalf("newSPAHandler: %v", err)
 	}
 
-	// The embedded index.html carries the root div; use it to recognize the SPA
-	// fallback body regardless of the exact bundle.
 	indexBody := getBody(t, h, "/")
 	if !strings.Contains(indexBody, `id="root"`) {
 		t.Fatalf("root did not serve index.html; body=%q", indexBody)
@@ -28,7 +34,7 @@ func TestSPAHandler(t *testing.T) {
 
 	// 1. A real JS asset is served as a file with a JS content-type (not the
 	//    HTML fallback).
-	rec := doGet(h, "/assets/index-BSzQB7ES.js")
+	rec := doGet(h, "/assets/app.js")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("asset status = %d, want 200", rec.Code)
 	}
