@@ -1,0 +1,27 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "workspace",
+    srcs = [
+        "handler.go",
+        "service.go",
+        "store.go",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/core/go/workspace",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//gen/go/gantry/v1:gantry",
+        "//gen/go/gantry/v1/gantryv1connect",
+        "@com_connectrpc_connect//:connect",
+    ],
+)
+
+go_test(
+    name = "workspace_test",
+    srcs = ["workspace_test.go"],
+    deps = [
+        ":workspace",
+        "//core/go/benchdb",
+        "//gen/go/gantry/v1:gantry",
+    ],
+)

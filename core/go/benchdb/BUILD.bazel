@@ -8,6 +8,7 @@ go_library(
         "migrations/0002_segments.sql",
         "migrations/0003_video.sql",
         "migrations/0004_hardware.sql",
+        "migrations/0005_workspaces.sql",
     ],
     importpath = "github.com/Sammyjroberts/gantry/core/go/benchdb",
     visibility = ["//visibility:public"],
@@ -19,6 +20,9 @@ go_library(
 
 go_test(
     name = "benchdb_test",
-    srcs = ["benchdb_test.go"],
-    deps = [":benchdb"],
+    srcs = [
+        "adopt_internal_test.go",
+        "benchdb_test.go",
+    ],
+    embed = [":benchdb"],
 )

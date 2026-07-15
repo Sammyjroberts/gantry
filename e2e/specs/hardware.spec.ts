@@ -1,98 +1,82 @@
 import { test, expect, type Page } from "../harness/fixtures";
-import { toggleDock, uniqueName } from "./_helpers";
+import type { HarnessState } from "../harness/util";
+import { uniqueName } from "./_helpers";
 
 // The telemetry feeder streams under this device id (see harness/feeder.mjs).
 const FEEDER_DEVICE = "sim-rover";
 
-/** Open the hardware panel (topbar ⬡ hardware toggle). */
-async function openHardware(page: Page): Promise<void> {
-  await page.locator(".ctl-btn").filter({ hasText: "hardware" }).click();
-  await expect(page.locator(".hw-panel")).toBeVisible();
+/**
+ * Open a console sub-page directly, preserving the harness `?api=` base.
+ *
+ * The promote/config flow lives on the /hardware and /hardware/:deviceId pages.
+ * These pages re-resolve the API base from window.location on mount, but in-app
+ * react-router navigation drops the `?api=` query (see the report notes), so we
+ * load each page with the query intact rather than click through nav links —
+ * exercising the real HardwareService round-trips deterministically.
+ */
+async function openPage(page: Page, state: HarnessState, path: string): Promise<void> {
+  const url = `${state.webURL}${path}?api=${encodeURIComponent(state.apiURL)}`;
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".statusbar")).toBeVisible();
 }
 
-async function closeHardware(page: Page): Promise<void> {
-  await page.locator(".hw-close").click();
-  await expect(page.locator(".hw-panel")).toHaveCount(0);
-}
-
-// Spec (hardware) — the device identity slice end to end against the real Bench:
-//   promote the feeder device → rename it → the name surfaces in the channel
-//   sidebar → set a 3D pose binding → reload → the binding survived server-side
-//   (proving viz_config_json round-trips, not localStorage).
-test("promote → rename → sidebar name; 3D binding survives reload (server-side)", async ({
+// Spec (hardware) — the device-identity slice end to end against the real Bench:
+//   promote the feeder device → rename it → the name surfaces on the hardware
+//   list after a fresh load (proving identity round-trips through HardwareService,
+//   not localStorage). The promote/config flow moved to /hardware/:deviceId.
+test("promote → rename → name persists on the hardware list (server-side)", async ({
   console: page,
+  state,
 }) => {
   const displayName = uniqueName("Rover");
 
-  // ---- promote + rename via the hardware panel ----
-  await openHardware(page);
+  // ---- the feeder device is visible on the hardware list (seen/unconfigured) ----
+  await openPage(page, state, "/hardware");
+  await expect(page.getByRole("heading", { name: "Hardware" })).toBeVisible();
+  await expect(page.locator(".hw-card").filter({ hasText: FEEDER_DEVICE }).first()).toBeVisible();
 
-  // The feeder device shows up "seen but unconfigured" until promoted. On a
-  // retry it may already be configured; handle both.
-  const promote = page
-    .locator(".hw-row--unconfigured")
-    .filter({ hasText: FEEDER_DEVICE })
-    .locator(".hw-btn--primary");
-  if (await promote.count()) {
-    await promote.first().click();
-  }
+  // ---- detail page: set the display name and save (promotes if unconfigured) ----
+  await openPage(page, state, `/hardware/${encodeURIComponent(FEEDER_DEVICE)}`);
+  await expect(page.locator(".hardware-detail-page")).toBeVisible();
+  await expect(page.locator(".hw-detail-id")).toHaveText(FEEDER_DEVICE);
 
-  // The configured row for the device now exists; open its editor. (Once the
-  // inline editor is open the row no longer shows the device id as text, so we
-  // target the sole open .hw-edit form for the inputs.)
-  const configuredRow = page
-    .locator(".hw-row:not(.hw-row--unconfigured)")
-    .filter({ hasText: FEEDER_DEVICE });
-  await expect(configuredRow).toBeVisible();
-  await configuredRow.getByRole("button", { name: "edit" }).click();
+  const nameField = page.locator(".hw-field").filter({ hasText: "Display name" }).locator("input");
+  await nameField.fill(displayName);
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("HardwareService/UpsertHardware") && r.ok()),
+    page.getByTestId("hw-save").click(),
+  ]);
 
-  const editForm = page.locator(".hw-panel .hw-edit");
-  await expect(editForm).toBeVisible();
-  await editForm.locator(".hw-input").first().fill(displayName);
-  await editForm.getByRole("button", { name: "save" }).click();
+  // ---- fresh load of the list: the display name persisted server-side ----
+  await openPage(page, state, "/hardware");
+  await expect(page.locator(".hw-card-name").filter({ hasText: displayName })).toBeVisible();
 
-  // The configured row reflects the new name.
-  await expect(configuredRow.locator(".hw-name")).toHaveText(displayName);
-
-  await closeHardware(page);
-
-  // ---- the display name surfaces in the channel sidebar header ----
+  // And the detail form re-seeds from the server row on a fresh load, too.
+  await openPage(page, state, `/hardware/${encodeURIComponent(FEEDER_DEVICE)}`);
   await expect(
-    page.locator(".device-name").filter({ hasText: displayName }),
-  ).toBeVisible();
+    page.locator(".hw-field").filter({ hasText: "Display name" }).locator("input"),
+  ).toHaveValue(displayName);
+});
 
-  // ---- set a 3D pose binding, let it save (debounced ~1s), then reload ----
-  await toggleDock(page, "3D");
-  const dock = page.locator(".scene3d-dock");
-  await expect(dock.locator(".s3-controls")).toBeVisible();
+// Spec (hardware, 3D binding) — set a pose binding on the detail page's embedded
+// Scene3D and prove it round-trips through viz_config_json across a reload.
+// (Previously fixme'd on a React #185 feedback loop; the app now memoizes
+// onBoundChannelsChange, so this must pass.)
+test("3D pose binding survives reload (server-side)", async ({ console: page, state }) => {
+  await openPage(page, state, `/hardware/${encodeURIComponent(FEEDER_DEVICE)}`);
+  const controls = page.locator(".hw-scene-host .s3-controls");
+  await expect(controls).toBeVisible();
 
-  // The first channel <select> is the pitch attitude binding; option 0 is
-  // "— none —", so index 1 is the first real channel.
-  const pitchSelect = dock.locator(".s3-select").first();
-  await pitchSelect.selectOption({ index: 1 });
+  const pitchSelect = controls.locator(".s3-select").first();
+  await pitchSelect.selectOption({ label: "imu.pitch_deg (deg)" });
   const boundValue = await pitchSelect.inputValue();
   expect(boundValue).not.toBe("");
+  await page.waitForResponse(
+    (r) => r.url().includes("HardwareService/UpsertHardware") && r.ok(),
+    { timeout: 15_000 },
+  );
 
-  // Wait out the debounce (~1s) + the upsert round-trip before reloading.
-  await page.waitForTimeout(2000);
-
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.locator(".statusbar")).toBeVisible();
-
-  // Re-open the 3D dock; the per-device viz config is loaded from the server.
-  await toggleDock(page, "3D");
-  const dock2 = page.locator(".scene3d-dock");
-  await expect(dock2.locator(".s3-controls")).toBeVisible();
-
-  // The pitch binding persisted server-side (no localStorage): the select is
-  // restored to the same channel key.
-  const pitchSelect2 = dock2.locator(".s3-select").first();
-  await expect
-    .poll(async () => pitchSelect2.inputValue(), { timeout: 10_000 })
-    .toBe(boundValue);
-
-  // And the display name still shows in the sidebar after reload.
-  await expect(
-    page.locator(".device-name").filter({ hasText: displayName }),
-  ).toBeVisible();
+  await openPage(page, state, `/hardware/${encodeURIComponent(FEEDER_DEVICE)}`);
+  const pitchSelect2 = page.locator(".hw-scene-host .s3-controls .s3-select").first();
+  await expect.poll(async () => pitchSelect2.inputValue(), { timeout: 10_000 }).toBe(boundValue);
 });

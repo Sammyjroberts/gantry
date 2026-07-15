@@ -24,14 +24,17 @@ export interface VideoPanelProps {
   baseUrl: string;
   /** Active replay session (drives cursor-synced playback), or null. */
   replay: ReplayView | null;
+  /** Seed the capture/watch camera (from a video panel's config). */
+  initialCamera?: string;
   onClose: () => void;
 }
 
 const DEFAULT_CAMERA = "bench-cam";
 
-export default function VideoPanel({ baseUrl, replay, onClose }: VideoPanelProps) {
-  const [cameraId, setCameraId] = useState(DEFAULT_CAMERA);
-  const [watchCamera, setWatchCamera] = useState(DEFAULT_CAMERA);
+export default function VideoPanel({ baseUrl, replay, initialCamera, onClose }: VideoPanelProps) {
+  const seedCamera = initialCamera && initialCamera.trim() ? initialCamera.trim() : DEFAULT_CAMERA;
+  const [cameraId, setCameraId] = useState(seedCamera);
+  const [watchCamera, setWatchCamera] = useState(seedCamera);
   const [following, setFollowing] = useState(false);
   const [serverCameras, setServerCameras] = useState<ServerCamera[]>([]);
 

@@ -23,6 +23,7 @@ import (
 	"github.com/Sammyjroberts/gantry/core/go/registry"
 	"github.com/Sammyjroberts/gantry/core/go/stream"
 	"github.com/Sammyjroberts/gantry/core/go/video"
+	"github.com/Sammyjroberts/gantry/core/go/workspace"
 	"github.com/Sammyjroberts/gantry/gen/go/gantry/v1/gantryv1connect"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -105,11 +106,17 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	expPath, expHandler := gantryv1connect.NewExperimentServiceHandler(experiments.NewHandler(expSvc))
 	queryPath, queryHandler := gantryv1connect.NewQueryServiceHandler(&queryService{bus: bus, stater: stater, segments: p.SegmentReader()})
 	hwPath, hwHandler := gantryv1connect.NewHardwareServiceHandler(hardware.NewHandler(hwSvc))
+	// Workspaces: named, persistent console layouts (the panel grid + per-panel
+	// config), stored opaquely as a versioned JSON document. Same Store shape as
+	// experiments/hardware.
+	wsSvc := workspace.NewService(db)
+	wsPath, wsHandler := gantryv1connect.NewWorkspaceServiceHandler(workspace.NewHandler(wsSvc))
 	mux.Handle(ingestPath, ingestHandler)
 	mux.Handle(livePath, liveHandler)
 	mux.Handle(expPath, expHandler)
 	mux.Handle(queryPath, queryHandler)
 	mux.Handle(hwPath, hwHandler)
+	mux.Handle(wsPath, wsHandler)
 
 	// Chunked video catalog + per-device model files (plain HTTP; see the
 	// register funcs for the URL surface). SQL over the segment store when a
@@ -138,7 +145,16 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	}))
 
 	// Static UI at "/" (ServeMux routes the more specific RPC prefixes first).
-	mux.Handle("/", http.FileServer(http.FS(ui.FS())))
+	// The console is a client-routed SPA, so this handler serves real embedded
+	// assets and falls back to index.html for deep links (see newSPAHandler).
+	spa, err := newSPAHandler(ui.FS())
+	if err != nil {
+		cancelBg()
+		_ = db.Close()
+		bus.Close()
+		return nil, err
+	}
+	mux.Handle("/", spa)
 
 	// h2c so gRPC clients work over cleartext HTTP/2; Connect + gRPC-Web over
 	// HTTP/1.1 continue to work too.

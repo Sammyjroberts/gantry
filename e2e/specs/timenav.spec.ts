@@ -1,11 +1,14 @@
 import { test, expect } from "../harness/fixtures";
-import { selectChannel } from "./_helpers";
+import { selectChannel, addSelectionAsChart, newWorkspace } from "./_helpers";
 
 // Spec (c) — Time navigation: preset switch highlights, drag-zoom on a chart
 // enters inspect (the live pill flips to the "⟳ live" resume affordance), and
-// back-to-live restores live follow.
+// back-to-live restores live follow. Needs a chart panel on the grid so there's
+// a uPlot overlay to drive.
 test("presets, drag-zoom into inspect, and back-to-live", async ({ console: page }) => {
+  await newWorkspace(page);
   await selectChannel(page, "pitch_deg");
+  await addSelectionAsChart(page);
 
   // Preset switch: default is the 1m window; switch to 10s and assert it activates.
   const tenSec = page.locator(".tr-preset").filter({ hasText: "10s" });
@@ -14,9 +17,17 @@ test("presets, drag-zoom into inspect, and back-to-live", async ({ console: page
   // Starts live.
   await expect(page.locator(".tr-readout.is-live")).toBeVisible();
 
-  // Drag-zoom on the chart's uPlot overlay (> MIN_DRAG_PX) → inspect mode.
-  const over = page.locator(".chart-row .u-over").first();
+  // Drag-zoom on the chart's uPlot overlay (> MIN_DRAG_PX) → inspect mode. Scope
+  // to the panel we just added (a single f64 row with a full-height plot area);
+  // the seeded default workspace also carries a short boolean strip whose overlay
+  // has no drag height.
+  const over = page
+    .locator(".panel[data-panel-type='timeseries']")
+    .last()
+    .locator(".panel-chart-row .u-over")
+    .first();
   await expect(over).toBeVisible();
+  await over.scrollIntoViewIfNeeded();
   const box = (await over.boundingBox())!;
   const y = box.y + box.height / 2;
   await page.mouse.move(box.x + box.width * 0.3, y);

@@ -1,10 +1,13 @@
 import { test, expect } from "../harness/fixtures";
-import { selectChannel, runExperiment, openExperimentRow, uniqueName } from "./_helpers";
+import { selectChannel, addSelectionAsChart, runExperiment, openExperimentRow, uniqueName, newWorkspace } from "./_helpers";
 
 // Spec (d) — Replay: replay a recorded experiment; the transport bar + playhead
-// pill appear and pause/resume toggles the clock.
+// pill appear and pause/resume toggles the clock. A chart panel is on the grid so
+// the replay cursor has something to sweep.
 test("replay transport with pause/resume", async ({ console: page }) => {
+  await newWorkspace(page);
   await selectChannel(page, "pitch_deg");
+  await addSelectionAsChart(page);
 
   const name = uniqueName("replay-run");
   await runExperiment(page, name, 2500);

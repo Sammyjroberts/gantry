@@ -23,6 +23,10 @@ import { runSql, SqlError } from "./sqlApi";
 
 export interface SqlConsoleProps {
   baseUrl: string;
+  /** Seed the editor with a saved query (from a sql panel's config). */
+  initialSql?: string;
+  /** Persist edits back to the owning panel's config (debounced by caller). */
+  onSqlChange?: (sql: string) => void;
   onClose: () => void;
 }
 
@@ -31,8 +35,8 @@ const STARTER = "SELECT device, packet, channel, count(*) AS n\nFROM tlm\nGROUP 
 const DUCKDB_HINT =
   "DuckDB engine not installed — drop duckdb.exe into <data-dir>/duckdb/ and restart the Bench.";
 
-export default function SqlConsole({ baseUrl, onClose }: SqlConsoleProps) {
-  const [sql, setSql] = useState(STARTER);
+export default function SqlConsole({ baseUrl, initialSql, onSqlChange, onClose }: SqlConsoleProps) {
+  const [sql, setSql] = useState(initialSql && initialSql.trim() ? initialSql : STARTER);
   const [grid, setGrid] = useState<SqlGrid | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +133,10 @@ export default function SqlConsole({ baseUrl, onClose }: SqlConsoleProps) {
           spellCheck={false}
           wrap="off"
           value={sql}
-          onChange={(e) => setSql(e.target.value)}
+          onChange={(e) => {
+            setSql(e.target.value);
+            onSqlChange?.(e.target.value);
+          }}
           onKeyDown={onKeyDown}
           placeholder="SELECT … FROM tlm  —  Ctrl/⌘+Enter to run"
         />

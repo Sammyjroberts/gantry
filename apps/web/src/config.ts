@@ -1,15 +1,37 @@
+/** sessionStorage key remembering an explicit `?api=` override for this tab. */
+const API_BASE_SESSION_KEY = "gantry-api-base";
+
 /**
  * Resolve the API base URL.
  *
- * Priority: `?api=` query param → `VITE_API_BASE` env → `window.location.origin`.
- * In production the Bench binary serves the bundle, so same-origin (`origin`) is
- * correct. In dev the origin is the Vite server and requests to `/gantry.v1` are
- * proxied to the Bench (see vite.config.ts), so origin also works there.
+ * Priority: `?api=` query param → this tab's remembered `?api=` →
+ * `VITE_API_BASE` env → `window.location.origin`. In production the Bench
+ * binary serves the bundle, so same-origin (`origin`) is correct. In dev the
+ * origin is the Vite server and requests to `/gantry.v1` are proxied to the
+ * Bench (see vite.config.ts), so origin also works there.
+ *
+ * An explicit `?api=` is remembered in sessionStorage because client-side
+ * router navigation drops the query string: without the sticky copy, a page
+ * mounted after an in-app nav would silently fall back to same-origin and
+ * point at the wrong server (e.g. the e2e static host).
  */
 export function resolveBaseUrl(): string {
   if (typeof window === "undefined") return "http://localhost:4780";
   const q = new URLSearchParams(window.location.search).get("api");
-  if (q) return q;
+  if (q) {
+    try {
+      sessionStorage.setItem(API_BASE_SESSION_KEY, q);
+    } catch {
+      /* disabled storage — non-fatal */
+    }
+    return q;
+  }
+  try {
+    const saved = sessionStorage.getItem(API_BASE_SESSION_KEY);
+    if (saved) return saved;
+  } catch {
+    /* disabled storage — non-fatal */
+  }
   const env = import.meta.env.VITE_API_BASE as string | undefined;
   if (env && env.length > 0) return env;
   return window.location.origin;

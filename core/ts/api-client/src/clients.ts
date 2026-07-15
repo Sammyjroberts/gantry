@@ -8,6 +8,7 @@ import { IngestService } from "./gen/gantry/v1/ingest_pb";
 import { ExperimentService } from "./gen/gantry/v1/experiment_pb";
 import { QueryService } from "./gen/gantry/v1/query_pb";
 import { HardwareService } from "./gen/gantry/v1/hardware_pb";
+import { WorkspaceService } from "./gen/gantry/v1/workspace_pb";
 
 /** Typed client for the live telemetry (streaming) service. */
 export type LiveClient = Client<typeof LiveService>;
@@ -19,6 +20,8 @@ export type ExperimentClient = Client<typeof ExperimentService>;
 export type QueryClient = Client<typeof QueryService>;
 /** Typed client for the hardware (device identity + config) service. */
 export type HardwareClient = Client<typeof HardwareService>;
+/** Typed client for the workspace (saved bench layout) service. */
+export type WorkspaceClient = Client<typeof WorkspaceService>;
 
 /**
  * Extra transport options, minus `baseUrl` which is passed positionally.
@@ -89,4 +92,19 @@ export function createHardwareClient(
   options: ClientOptions = {},
 ): HardwareClient {
   return createClient(HardwareService, createConnectTransport({ baseUrl, ...options }));
+}
+
+/**
+ * Create a typed WorkspaceService client bound to `baseUrl`.
+ *
+ * Same origin/base contract as {@link createLiveClient}: Connect appends the
+ * `/gantry.v1.WorkspaceService/...` RPC path. Serves the console's saved bench
+ * layouts (the panel grid) — List (name + timestamps only), Get (full
+ * layout_json), Upsert (create when id is empty, else update), Delete.
+ */
+export function createWorkspaceClient(
+  baseUrl: string,
+  options: ClientOptions = {},
+): WorkspaceClient {
+  return createClient(WorkspaceService, createConnectTransport({ baseUrl, ...options }));
 }

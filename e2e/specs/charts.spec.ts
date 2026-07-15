@@ -1,15 +1,20 @@
 import { test, expect } from "../harness/fixtures";
-import { selectChannel, framesPerSec } from "./_helpers";
+import { selectChannel, addSelectionAsChart, framesPerSec, newWorkspace } from "./_helpers";
 
-// Spec (a) — Charts live: select channels, assert canvas charts render and the
-// frames/sec status becomes nonzero (live stream flowing from the real Bench).
+// Spec (a) — Charts live: select channels, add them as a timeseries panel, assert
+// the canvas charts render and the frames/sec status becomes nonzero (live stream
+// flowing from the real Bench).
 test("charts render live and frames/sec climbs", async ({ console: page }) => {
+  await newWorkspace(page);
   await selectChannel(page, "pitch_deg");
   await selectChannel(page, "roll_deg");
+  await addSelectionAsChart(page);
 
-  // Two chart rows, each with a uPlot canvas.
-  await expect(page.locator(".chart-row")).toHaveCount(2);
-  await expect(page.locator(".chart-row canvas").first()).toBeVisible();
+  // The timeseries panel holds one chart row per bound channel, each a uPlot canvas.
+  const panel = page.locator(".panel[data-panel-type='timeseries']").last();
+  await expect(panel).toBeVisible();
+  await expect(panel.locator(".panel-chart-row")).toHaveCount(2);
+  await expect(panel.locator(".panel-chart-row canvas").first()).toBeVisible();
 
   // Connection goes LIVE and the frames/sec counter becomes nonzero.
   await expect(page.locator(".conn-pill.conn-live")).toBeVisible();
@@ -19,9 +24,9 @@ test("charts render live and frames/sec climbs", async ({ console: page }) => {
 
   // The live readout for the primary chart shows a numeric value (data drawn).
   await expect
-    .poll(async () => (await page.locator(".chart-readout .readout-val").first().textContent()) ?? "", {
+    .poll(async () => (await panel.locator(".chart-readout .readout-val").first().textContent()) ?? "", {
       timeout: 15_000,
       message: "chart readout should show a number",
     })
-    .toMatch(/\d/);
+    .toMatch(/-?\d/);
 });

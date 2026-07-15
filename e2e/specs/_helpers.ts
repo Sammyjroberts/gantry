@@ -5,19 +5,49 @@ export async function selectChannel(page: Page, name: string): Promise<void> {
   const label = page.locator(".channel-list label").filter({ hasText: name }).first();
   await expect(label).toBeVisible();
   await label.locator('input[type="checkbox"]').check();
-  // A chart row for the selection should mount.
-  await expect(page.locator(".chart-row").first()).toBeVisible();
+}
+
+/** Add the current sidebar selection as a timeseries chart panel. */
+export async function addSelectionAsChart(page: Page): Promise<void> {
+  await page.getByTestId("add-as-chart").click();
+  await expect(page.locator(".panel[data-panel-type='timeseries']").first()).toBeVisible();
+}
+
+/** Navigate to a page via the left nav rail. */
+export async function navTo(
+  page: Page,
+  label: "workspace" | "hardware" | "experiments" | "data",
+): Promise<void> {
+  await page.getByTestId(`nav-${label}`).click();
+}
+
+/** Add a panel of `type` via the workspace toolbar add-panel menu. */
+export async function addPanel(page: Page, type: string): Promise<void> {
+  await page.getByTestId("add-panel-btn").click();
+  await page.getByTestId(`add-panel-${type}`).click();
+}
+
+/**
+ * Start from a fresh, empty workspace via the toolbar "new workspace" button.
+ *
+ * The Bench is shared across the whole suite (workers:1) and layouts persist
+ * server-side, so the default workspace accumulates panels across specs and
+ * retries. Panel-adding specs create their own empty workspace first so the grid
+ * holds exactly the panels they add (kept near the top / on-screen), making
+ * `.last()`/type-scoped panel locators deterministic.
+ */
+export async function newWorkspace(page: Page): Promise<void> {
+  // Wait for the manager to finish bootstrapping (a workspace is selected) so the
+  // create doesn't race the initial load-or-seed.
+  await expect(page.getByTestId("workspace-switcher")).not.toHaveValue("");
+  await page.getByTestId("workspace-new").click();
+  await expect(page.locator(".panel")).toHaveCount(0);
 }
 
 /** Read the live frames/sec counter from the status bar. */
 export async function framesPerSec(page: Page): Promise<number> {
   const v = await page.locator(".stat").filter({ hasText: "frames/s" }).locator(".stat-v").textContent();
   return Number((v ?? "0").trim());
-}
-
-/** Toggle a top-bar dock button (matched by its label text). */
-export async function toggleDock(page: Page, label: "3D" | "video" | "sql"): Promise<void> {
-  await page.locator(".ctl-btn").filter({ hasText: label }).click();
 }
 
 /** Start an experiment, dwell, and stop it. Returns the experiment name. */

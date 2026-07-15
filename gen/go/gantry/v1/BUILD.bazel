@@ -9,6 +9,7 @@ go_library(
         "live.pb.go",
         "query.pb.go",
         "telemetry.pb.go",
+        "workspace.pb.go",
     ],
     importpath = "github.com/Sammyjroberts/gantry/gen/go/gantry/v1",
     visibility = ["//visibility:public"],

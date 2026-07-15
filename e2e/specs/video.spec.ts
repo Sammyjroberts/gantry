@@ -1,12 +1,14 @@
 import { test, expect } from "../harness/fixtures";
-import { toggleDock } from "./_helpers";
+import { addPanel, newWorkspace } from "./_helpers";
 
 // Spec (g) — Video capture: with Chromium's fake camera + auto-granted media
-// permission (see playwright.config.ts), record for ~5s, assert the upload
-// "sent" counter climbs and the chunks appear via GET /video/chunks, then stop.
+// permission (see playwright.config.ts), add a video panel, record for ~5s,
+// assert the upload "sent" counter climbs and the chunks appear via
+// GET /video/chunks, then stop.
 test("camera capture uploads chunks that appear in the catalog", async ({ console: page, state }) => {
-  await toggleDock(page, "video");
-  const panel = page.locator(".video-panel");
+  await newWorkspace(page);
+  await addPanel(page, "video");
+  const panel = page.locator(".panel[data-panel-type='video'] .video-panel");
   await expect(panel).toBeVisible();
 
   // Capture must be supported in a real browser (fake device counts).
