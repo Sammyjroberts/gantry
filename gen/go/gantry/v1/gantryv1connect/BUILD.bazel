@@ -12,6 +12,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//gen/go/gantry/v1:gantry",
-        "@com_connectrpc_connect//:go_default_library",
+        "@com_connectrpc_connect//:connect",
     ],
 )
