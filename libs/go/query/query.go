@@ -44,6 +44,15 @@ const (
 	// defaultMaxSamples caps total points buffered across all series in one
 	// collection, bounding memory on a very wide/dense window before downsampling.
 	defaultMaxSamples = 400_000
+	// endStopSlopNs: once a drained frame's timestamp exceeds EndNs by this
+	// margin, the drain stops. Stream delivery is arrival-ordered, so anything
+	// still owed for the range would have arrived by then; without this, a query
+	// whose EndNs lies in the past drains every frame between EndNs and now just
+	// to discard it (measured: ~2s per query against a live 300fps stream). The
+	// slop absorbs cross-subject interleave and modest emitter clock skew; a
+	// device lagging more than this behind its peers in one multi-device query
+	// may lose its tail — an accepted trade at bench scale.
+	endStopSlopNs = int64(2 * time.Second)
 )
 
 // Replayer opens a replay-then-live subscription over the telemetry backbone.
@@ -182,6 +191,9 @@ func Collect(ctx context.Context, rep Replayer, opts Options) (*Collection, erro
 				return c, nil
 			}
 			c.add(d, opts.StartNs, opts.EndNs)
+			if opts.EndNs > 0 && d.Frame != nil && int64(d.Frame.TimestampNs) > opts.EndNs+endStopSlopNs {
+				return c, nil // arrival-ordered stream is past the range: done
+			}
 			if c.Total >= maxSamples {
 				c.Truncated = true
 				return c, nil

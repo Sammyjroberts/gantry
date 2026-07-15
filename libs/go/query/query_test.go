@@ -203,3 +203,63 @@ func TestCollectEmptyStream(t *testing.T) {
 		t.Fatalf("empty stream produced %d series", len(coll.Series))
 	}
 }
+
+// endlessReplayer delivers a fixed backlog and then endless live frames far past
+// the range end, mimicking a busy stream when the queried range lies in the past.
+type endlessReplayer struct {
+	backlog []stream.Delivered
+}
+
+func (e *endlessReplayer) Subscribe(ctx context.Context, opts stream.SubscribeOptions) (<-chan stream.Delivered, error) {
+	out := make(chan stream.Delivered, 64)
+	go func() {
+		defer close(out)
+		for _, d := range e.backlog {
+			select {
+			case out <- d:
+			case <-ctx.Done():
+				return
+			}
+		}
+		seq := uint64(1000)
+		ts := e.backlog[len(e.backlog)-1].Frame.TimestampNs
+		for {
+			seq++
+			ts += uint64(20 * time.Millisecond)
+			select {
+			case out <- f64Delivered("dev", "imu", "pitch", seq, int64(ts), 1.0):
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return out, nil
+}
+
+// TestCollectPastEndStopsEarly is the perf regression guard: a query whose EndNs
+// lies in the past must terminate as soon as arrival-ordered timestamps pass
+// EndNs (+slop) instead of draining the stream to now (measured ~2s per query
+// against a live 300fps stream before the fix).
+func TestCollectPastEndStopsEarly(t *testing.T) {
+	base := time.Now().Add(-10 * time.Minute).UnixNano()
+	rep := &endlessReplayer{backlog: []stream.Delivered{
+		f64Delivered("dev", "imu", "pitch", 1, base, 1),
+		f64Delivered("dev", "imu", "pitch", 2, base+int64(time.Second), 2),
+		f64Delivered("dev", "imu", "pitch", 3, base+9*int64(time.Second), 3), // past end+slop
+	}}
+	start := time.Now()
+	coll, err := Collect(context.Background(), rep, Options{
+		StartNs: base, EndNs: base + 2*int64(time.Second),
+		HighWater: ^uint64(0) - 1, HasHighWater: true, // high-water unreachable: only the end-stop can terminate promptly
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("past-end query took %v; end-stop did not fire", elapsed)
+	}
+	key := SeriesKey{Device: "dev", Packet: "imu", Channel: "pitch"}
+	if got := len(coll.Series[key]); got != 2 {
+		t.Fatalf("want 2 in-range samples, got %d", got)
+	}
+}
