@@ -39,10 +39,10 @@ func TestOpenMigratesFromEmpty(t *testing.T) {
 	}
 }
 
-// TestOpenAdoptsLegacyEdgeDB proves the Edge→Bench rename migration: a data dir
+// TestOpenAdoptsLegacyEdgeDB proves the Edgeâ†’Bench rename migration: a data dir
 // that still holds a pre-rename edge.db is opened by adopting that file as
 // bench.db, so existing bench history survives the rename with no operator step.
-// Temp dir only — never the live data dir (the running bench holds it open).
+// Temp dir only â€” never the live data dir (the running bench holds it open).
 func TestOpenAdoptsLegacyEdgeDB(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
@@ -86,7 +86,7 @@ func TestOpenAdoptsLegacyEdgeDB(t *testing.T) {
 }
 
 // TestOpenDoesNotClobberExistingBenchDB proves adoption never overwrites a new
-// bench.db when a stray legacy edge.db also exists — the current file wins.
+// bench.db when a stray legacy edge.db also exists â€” the current file wins.
 func TestOpenDoesNotClobberExistingBenchDB(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
@@ -123,7 +123,7 @@ func TestOpenDoesNotClobberExistingBenchDB(t *testing.T) {
 
 	var name string
 	if err := db.QueryRowContext(ctx, `SELECT name FROM experiments WHERE id = 'current'`).Scan(&name); err != nil {
-		t.Fatalf("existing bench.db row lost — it was clobbered: %v", err)
+		t.Fatalf("existing bench.db row lost â€” it was clobbered: %v", err)
 	}
 	if _, err := os.Stat(legacy); err != nil {
 		t.Errorf("legacy edge.db should be left untouched when bench.db exists: %v", err)

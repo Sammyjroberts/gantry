@@ -77,8 +77,12 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 // carrying its history forward. It is a no-op unless path's base is the current
 // bench.db name, the legacy file is present, and the target is absent — so a
 // fresh dir, an already-migrated dir, or a caller using some other filename are
-// all untouched. WAL/SHM sidecars (edge.db-wal, edge.db-shm) are left for SQLite
-// to recreate; only the main DB file carries committed state.
+// all untouched.
+//
+// The -wal and -shm sidecars MUST move with the base file: in WAL mode,
+// committed transactions live in the WAL until checkpointed, so renaming only
+// the main file orphans recent writes (this bug lost live data once — the
+// hardware table's rows were stranded in edge.db-wal until hand-recovered).
 func adoptLegacyDB(path string) error {
 	if filepath.Base(path) != "bench.db" {
 		return nil
@@ -92,6 +96,15 @@ func adoptLegacyDB(path string) error {
 	}
 	if err := os.Rename(legacy, path); err != nil {
 		return fmt.Errorf("benchdb: adopt legacy %s: %w", legacyDBName, err)
+	}
+	for _, ext := range []string{"-wal", "-shm"} {
+		src := legacy + ext
+		if _, err := os.Stat(src); err != nil {
+			continue // no sidecar (cleanly checkpointed shutdown)
+		}
+		if err := os.Rename(src, path+ext); err != nil {
+			return fmt.Errorf("benchdb: adopt legacy sidecar %s%s: %w", legacyDBName, ext, err)
+		}
 	}
 	return nil
 }
