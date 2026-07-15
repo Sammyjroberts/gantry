@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/Sammyjroberts/gantry/libs/go/blob"
@@ -122,10 +123,16 @@ func (s *Service) IngestChunk(ctx context.Context, cameraID string, startNs, dur
 	if durationMs <= 0 {
 		return "", fmt.Errorf("%w: duration_ms must be positive", ErrInvalid)
 	}
-	ext, ok := mimeExt[mime]
+	// Browsers tag a MediaRecorder blob's Content-Type with codec parameters
+	// (e.g. "video/webm;codecs=vp9"); match the allowlist on the base media type
+	// and store that playable base type. Without this the real capture path is
+	// rejected with 415 even though the format is supported.
+	mediaType := baseMime(mime)
+	ext, ok := mimeExt[mediaType]
 	if !ok {
 		return "", fmt.Errorf("%w: %q (allowed: video/webm, video/mp4)", ErrUnsupportedMime, mime)
 	}
+	mime = mediaType
 
 	// Read at most cap+1 bytes: if we get cap+1 the body is over the limit.
 	data, err := io.ReadAll(io.LimitReader(r, s.maxChunkBytes+1))
@@ -251,6 +258,16 @@ func (s *Service) StartJanitor(ctx context.Context, retention, interval time.Dur
 			}
 		}
 	}()
+}
+
+// baseMime strips any parameters (e.g. ";codecs=vp9") from a Content-Type and
+// lowercases it, so the allowlist matches what browsers actually send. The
+// stored, served mime is the base type, which video players accept.
+func baseMime(s string) string {
+	if i := strings.IndexByte(s, ';'); i >= 0 {
+		s = s[:i]
+	}
+	return strings.ToLower(strings.TrimSpace(s))
 }
 
 // keyFor builds the blob key for a chunk: video/<camera>/<start_ns>.<ext>.

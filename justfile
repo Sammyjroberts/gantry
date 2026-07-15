@@ -44,6 +44,14 @@ edge-release: embed-ui
 # Run all tests
 test: test-go test-rust test-web
 
+# Every tier: unit + integration + browser e2e
+test-all: test-go test-rust test-web e2e
+
+# Browser e2e (Playwright + real edge binary + fake camera). First run installs browsers.
+e2e:
+    pnpm -r build
+    cd e2e && npm install && npm run install:browsers && npm test
+
 test-go:
     go test ./...
 

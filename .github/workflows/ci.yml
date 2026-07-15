@@ -14,10 +14,15 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # DuckDB CLI pinned so the embedded-SQL tier is tested against a known build.
+  # Bump deliberately; the actions/cache key is derived from this.
+  DUCKDB_VERSION: "1.1.3"
+
 jobs:
   # ---------------------------------------------------------------------------
   # Detect which parts of the monorepo changed so language jobs only run when
-  # their inputs move. proto -> {go, web} because it regenerates their bindings.
+  # their inputs move. proto -> {go, web, e2e} because it regenerates bindings.
   # ---------------------------------------------------------------------------
   changes:
     runs-on: ubuntu-latest
@@ -26,6 +31,7 @@ jobs:
       go: ${{ steps.filter.outputs.go }}
       rust: ${{ steps.filter.outputs.rust }}
       web: ${{ steps.filter.outputs.web }}
+      e2e: ${{ steps.filter.outputs.e2e }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -55,6 +61,20 @@ jobs:
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - '.github/workflows/ci.yml'
+            e2e:
+              - 'apps/web/**'
+              - 'libs/ts/**'
+              - 'apps/edge/**'
+              - 'libs/go/**'
+              - 'gen/go/**'
+              - 'proto/**'
+              - 'e2e/**'
+              - 'go.mod'
+              - 'go.sum'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/ci.yml'
 
   # ---------------------------------------------------------------------------
   # Proto: contracts are the single source of truth. Lint + format check.
@@ -74,7 +94,12 @@ jobs:
         run: buf format --diff --exit-code
 
   # ---------------------------------------------------------------------------
-  # Go: shared engine (libs/go) + apps (edge, backend). Build, vet, test.
+  # Go: shared engine (libs/go) + apps (edge, backend). Build, vet, race-test.
+  # ubuntu runners ship gcc, so we run the whole suite under -race (the Windows
+  # bench box can't — no C toolchain — so this is where data races are caught).
+  # A pinned DuckDB CLI is provisioned + GANTRY_DUCKDB exported so the embedded
+  # SQL integration tests (duckdb engine + edge /sql end-to-end) actually RUN
+  # instead of skipping.
   # ---------------------------------------------------------------------------
   go:
     needs: changes
@@ -86,15 +111,33 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Cache DuckDB CLI
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/duckdb
+          key: duckdb-${{ runner.os }}-${{ env.DUCKDB_VERSION }}
+      - name: Provision DuckDB
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/duckdb"
+          if [ ! -x "$HOME/.local/duckdb/duckdb" ]; then
+            curl -fsSL -o /tmp/duckdb.zip \
+              "https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/duckdb_cli-linux-amd64.zip"
+            unzip -o /tmp/duckdb.zip -d "$HOME/.local/duckdb"
+            chmod +x "$HOME/.local/duckdb/duckdb"
+          fi
+          echo "GANTRY_DUCKDB=$HOME/.local/duckdb/duckdb" >> "$GITHUB_ENV"
       - name: go build
         run: go build ./...
       - name: go vet
         run: go vet ./...
-      - name: go test
-        run: go test ./...
+      - name: go test (race + duckdb)
+        run: go test -race ./...
 
   # ---------------------------------------------------------------------------
-  # Rust: the Connect SDK (cargo workspace in sdk/).
+  # Rust: the Connect SDK (cargo workspace in sdk/). Adds the tlm ENABLED-feature
+  # suite, the no_std MCU-target builds, and the serial-agent → real-Edge e2e
+  # (which builds the Go edge binary, so a Go toolchain is added here too).
   # ---------------------------------------------------------------------------
   rust:
     needs: changes
@@ -108,17 +151,31 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+          targets: thumbv7em-none-eabi
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: sdk
+      # Go is needed by the serial-agent e2e (it builds ./apps/edge/cmd/edge).
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
       - name: cargo fmt check
         run: cargo fmt --all --check
       - name: cargo build
         run: cargo build --workspace
       - name: cargo clippy
         run: cargo clippy --workspace -- -D warnings
-      - name: cargo test
+      - name: cargo test (workspace, tlm disabled default)
         run: cargo test --workspace
+      - name: cargo test (tlm enabled feature)
+        run: cargo test -p gantry-tlm --features enabled
+      - name: no_std MCU builds (thumbv7em-none-eabi)
+        run: |
+          cargo build -p gantry-wire --no-default-features --target thumbv7em-none-eabi
+          cargo build -p gantry-tlm --no-default-features --features enabled --target thumbv7em-none-eabi
+      - name: serial-agent e2e (builds + drives real Edge)
+        run: cargo test -p gantry-serial-agent --test e2e_edge -- --ignored
 
   # ---------------------------------------------------------------------------
   # Web: TS/React console + shared TS packages (pnpm workspace).
@@ -142,17 +199,82 @@ jobs:
         run: pnpm -r test
 
   # ---------------------------------------------------------------------------
+  # Browser e2e: the real edge binary + a Node telemetry feeder driven through
+  # Playwright/Chromium against the production web build. Needs Go (edge build),
+  # Node/pnpm (web build + harness), a cached Chromium, and a pinned DuckDB so
+  # the SQL-console spec runs. Traces/report uploaded on failure.
+  # ---------------------------------------------------------------------------
+  e2e:
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Cache DuckDB CLI
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/duckdb
+          key: duckdb-${{ runner.os }}-${{ env.DUCKDB_VERSION }}
+      - name: Provision DuckDB
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/duckdb"
+          if [ ! -x "$HOME/.local/duckdb/duckdb" ]; then
+            curl -fsSL -o /tmp/duckdb.zip \
+              "https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/duckdb_cli-linux-amd64.zip"
+            unzip -o /tmp/duckdb.zip -d "$HOME/.local/duckdb"
+            chmod +x "$HOME/.local/duckdb/duckdb"
+          fi
+          echo "GANTRY_DUCKDB=$HOME/.local/duckdb/duckdb" >> "$GITHUB_ENV"
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+      - name: Build web console
+        run: pnpm -r build
+      - name: e2e deps
+        working-directory: e2e
+        run: npm ci
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+      - name: Install Chromium
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright suite
+        working-directory: e2e
+        run: npm test
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
   # Aggregate gate: a single required check that passes only if no needed job
   # failed. Skipped (unchanged) jobs are OK; failed/cancelled ones are not.
   # ---------------------------------------------------------------------------
   ci:
-    needs: [proto, go, rust, web]
+    needs: [proto, go, rust, web, e2e]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Verify no job failed
         run: |
-          results='${{ needs.proto.result }} ${{ needs.go.result }} ${{ needs.rust.result }} ${{ needs.web.result }}'
+          results='${{ needs.proto.result }} ${{ needs.go.result }} ${{ needs.rust.result }} ${{ needs.web.result }} ${{ needs.e2e.result }}'
           echo "job results: $results"
           for r in $results; do
             if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
