@@ -304,8 +304,13 @@ type FrameBatch struct {
 	DeviceId string `protobuf:"bytes,1,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
 	// Monotonically increasing per-device batch sequence number, for dedup and
 	// gap detection across lossy links.
-	Sequence      uint64   `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
-	Frames        []*Frame `protobuf:"bytes,3,rep,name=frames,proto3" json:"frames,omitempty"`
+	Sequence uint64   `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
+	Frames   []*Frame `protobuf:"bytes,3,rep,name=frames,proto3" json:"frames,omitempty"`
+	// Stamped by the INGEST SERVER at acceptance (emitters leave it zero).
+	// Frame.timestamp_ns is measurement time; this is arrival time — the two
+	// diverge under store-and-forward (a spool replayed hours later) and their
+	// difference is the end-to-end latency. Persisted alongside samples.
+	ReceivedNs    uint64 `protobuf:"fixed64,4,opt,name=received_ns,json=receivedNs,proto3" json:"received_ns,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -359,6 +364,13 @@ func (x *FrameBatch) GetFrames() []*Frame {
 		return x.Frames
 	}
 	return nil
+}
+
+func (x *FrameBatch) GetReceivedNs() uint64 {
+	if x != nil {
+		return x.ReceivedNs
+	}
+	return 0
 }
 
 // Channel metadata, registered ahead of or alongside data.
@@ -457,12 +469,14 @@ const file_gantry_v1_telemetry_proto_rawDesc = "" +
 	"\ftimestamp_ns\x18\x02 \x01(\x06R\vtimestampNs\x12&\n" +
 	"\x05value\x18\x03 \x01(\v2\x10.gantry.v1.ValueR\x05value\x12\x16\n" +
 	"\x06packet\x18\x04 \x01(\tR\x06packet\x12\x1b\n" +
-	"\tdevice_id\x18\x05 \x01(\tR\bdeviceId\"o\n" +
+	"\tdevice_id\x18\x05 \x01(\tR\bdeviceId\"\x90\x01\n" +
 	"\n" +
 	"FrameBatch\x12\x1b\n" +
 	"\tdevice_id\x18\x01 \x01(\tR\bdeviceId\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x04R\bsequence\x12(\n" +
-	"\x06frames\x18\x03 \x03(\v2\x10.gantry.v1.FrameR\x06frames\"\x99\x01\n" +
+	"\x06frames\x18\x03 \x03(\v2\x10.gantry.v1.FrameR\x06frames\x12\x1f\n" +
+	"\vreceived_ns\x18\x04 \x01(\x06R\n" +
+	"receivedNs\"\x99\x01\n" +
 	"\vChannelInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12(\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x14.gantry.v1.ValueKindR\x04kind\x12\x12\n" +

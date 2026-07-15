@@ -49,6 +49,11 @@ message FrameBatch {
   // gap detection across lossy links.
   uint64 sequence = 2;
   repeated Frame frames = 3;
+  // Stamped by the INGEST SERVER at acceptance (emitters leave it zero).
+  // Frame.timestamp_ns is measurement time; this is arrival time — the two
+  // diverge under store-and-forward (a spool replayed hours later) and their
+  // difference is the end-to-end latency. Persisted alongside samples.
+  fixed64 received_ns = 4;
 }
 
 // Channel metadata, registered ahead of or alongside data.

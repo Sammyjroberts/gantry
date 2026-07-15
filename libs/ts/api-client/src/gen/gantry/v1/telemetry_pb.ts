@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gantry/v1/telemetry.proto.
  */
 export const file_gantry_v1_telemetry: GenFile = /*@__PURE__*/
-  fileDesc("ChlnYW50cnkvdjEvdGVsZW1ldHJ5LnByb3RvEglnYW50cnkudjEiXAoFVmFsdWUSDQoDZjY0GAEgASgBSAASDQoDaTY0GAIgASgSSAASDgoEZmxhZxgDIAEoCEgAEg4KBHRleHQYBCABKAlIABINCgNyYXcYBSABKAxIAEIGCgRraW5kInIKBUZyYW1lEg8KB2NoYW5uZWwYASABKAkSFAoMdGltZXN0YW1wX25zGAIgASgGEh8KBXZhbHVlGAMgASgLMhAuZ2FudHJ5LnYxLlZhbHVlEg4KBnBhY2tldBgEIAEoCRIRCglkZXZpY2VfaWQYBSABKAkiUwoKRnJhbWVCYXRjaBIRCglkZXZpY2VfaWQYASABKAkSEAoIc2VxdWVuY2UYAiABKAQSIAoGZnJhbWVzGAMgAygLMhAuZ2FudHJ5LnYxLkZyYW1lInIKC0NoYW5uZWxJbmZvEgwKBG5hbWUYASABKAkSIgoEa2luZBgCIAEoDjIULmdhbnRyeS52MS5WYWx1ZUtpbmQSDAoEdW5pdBgDIAEoCRITCgtkZXNjcmlwdGlvbhgEIAEoCRIOCgZwYWNrZXQYBSABKAkqjQEKCVZhbHVlS2luZBIaChZWQUxVRV9LSU5EX1VOU1BFQ0lGSUVEEAASEgoOVkFMVUVfS0lORF9GNjQQARISCg5WQUxVRV9LSU5EX0k2NBACEhMKD1ZBTFVFX0tJTkRfQk9PTBADEhMKD1ZBTFVFX0tJTkRfVEVYVBAEEhIKDlZBTFVFX0tJTkRfUkFXEAVCnwEKDWNvbS5nYW50cnkudjFCDlRlbGVtZXRyeVByb3RvUAFaOWdpdGh1Yi5jb20vU2FtbXlqcm9iZXJ0cy9nYW50cnkvZ2VuL2dvL2dhbnRyeS92MTtnYW50cnl2MaICA0dYWKoCCUdhbnRyeS5WMcoCCUdhbnRyeVxWMeICFUdhbnRyeVxWMVxHUEJNZXRhZGF0YeoCCkdhbnRyeTo6VjFiBnByb3RvMw");
+  fileDesc("ChlnYW50cnkvdjEvdGVsZW1ldHJ5LnByb3RvEglnYW50cnkudjEiXAoFVmFsdWUSDQoDZjY0GAEgASgBSAASDQoDaTY0GAIgASgSSAASDgoEZmxhZxgDIAEoCEgAEg4KBHRleHQYBCABKAlIABINCgNyYXcYBSABKAxIAEIGCgRraW5kInIKBUZyYW1lEg8KB2NoYW5uZWwYASABKAkSFAoMdGltZXN0YW1wX25zGAIgASgGEh8KBXZhbHVlGAMgASgLMhAuZ2FudHJ5LnYxLlZhbHVlEg4KBnBhY2tldBgEIAEoCRIRCglkZXZpY2VfaWQYBSABKAkiaAoKRnJhbWVCYXRjaBIRCglkZXZpY2VfaWQYASABKAkSEAoIc2VxdWVuY2UYAiABKAQSIAoGZnJhbWVzGAMgAygLMhAuZ2FudHJ5LnYxLkZyYW1lEhMKC3JlY2VpdmVkX25zGAQgASgGInIKC0NoYW5uZWxJbmZvEgwKBG5hbWUYASABKAkSIgoEa2luZBgCIAEoDjIULmdhbnRyeS52MS5WYWx1ZUtpbmQSDAoEdW5pdBgDIAEoCRITCgtkZXNjcmlwdGlvbhgEIAEoCRIOCgZwYWNrZXQYBSABKAkqjQEKCVZhbHVlS2luZBIaChZWQUxVRV9LSU5EX1VOU1BFQ0lGSUVEEAASEgoOVkFMVUVfS0lORF9GNjQQARISCg5WQUxVRV9LSU5EX0k2NBACEhMKD1ZBTFVFX0tJTkRfQk9PTBADEhMKD1ZBTFVFX0tJTkRfVEVYVBAEEhIKDlZBTFVFX0tJTkRfUkFXEAVCnwEKDWNvbS5nYW50cnkudjFCDlRlbGVtZXRyeVByb3RvUAFaOWdpdGh1Yi5jb20vU2FtbXlqcm9iZXJ0cy9nYW50cnkvZ2VuL2dvL2dhbnRyeS92MTtnYW50cnl2MaICA0dYWKoCCUdhbnRyeS5WMcoCCUdhbnRyeVxWMeICFUdhbnRyeVxWMVxHUEJNZXRhZGF0YeoCCkdhbnRyeTo6VjFiBnByb3RvMw");
 
 /**
  * A single telemetry value. Kept as a oneof so constrained emitters pay only
@@ -138,6 +138,16 @@ export type FrameBatch = Message<"gantry.v1.FrameBatch"> & {
    * @generated from field: repeated gantry.v1.Frame frames = 3;
    */
   frames: Frame[];
+
+  /**
+   * Stamped by the INGEST SERVER at acceptance (emitters leave it zero).
+   * Frame.timestamp_ns is measurement time; this is arrival time — the two
+   * diverge under store-and-forward (a spool replayed hours later) and their
+   * difference is the end-to-end latency. Persisted alongside samples.
+   *
+   * @generated from field: fixed64 received_ns = 4;
+   */
+  receivedNs: bigint;
 };
 
 /**
