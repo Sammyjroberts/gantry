@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package gantry.v1;
+
+// Hardware: the configured identity of a device. Telemetry devices appear
+// implicitly the moment they emit; a Hardware row is the operator-authored
+// layer on top — display name, notes, 3D visualization config, defaults.
+// Stored server-side (SQLite on Bench, Postgres on Cloud) and synced; never
+// browser-local.
+service HardwareService {
+  rpc ListHardware(ListHardwareRequest) returns (ListHardwareResponse);
+  rpc GetHardware(GetHardwareRequest) returns (GetHardwareResponse);
+  // Create or update (device_id is the natural key).
+  rpc UpsertHardware(UpsertHardwareRequest) returns (UpsertHardwareResponse);
+  rpc DeleteHardware(DeleteHardwareRequest) returns (DeleteHardwareResponse);
+}
+
+message Hardware {
+  // Natural key: matches the telemetry device_id exactly.
+  string device_id = 1;
+  string display_name = 2;
+  string description = 3;
+  string notes = 4;
+  // Evolving structured configs ride as JSON documents; the server stores them
+  // opaquely and the console owns their schemas (versioned inside the JSON).
+  // 3D visualization: model choice + pose/joint channel bindings.
+  string viz_config_json = 5;
+  // Default console state for this hardware (e.g. default channel selections).
+  string panel_defaults_json = 6;
+  fixed64 created_ns = 7;
+  fixed64 updated_ns = 8;
+}
+
+message ListHardwareRequest {}
+
+message ListHardwareResponse {
+  repeated Hardware hardware = 1;
+  // Devices seen in telemetry that have no Hardware row yet (promotable).
+  repeated string unconfigured_device_ids = 2;
+}
+
+message GetHardwareRequest {
+  string device_id = 1;
+}
+
+message GetHardwareResponse {
+  Hardware hardware = 1;
+}
+
+message UpsertHardwareRequest {
+  Hardware hardware = 1;
+}
+
+message UpsertHardwareResponse {
+  Hardware hardware = 1;
+}
+
+message DeleteHardwareRequest {
+  string device_id = 1;
+}
+
+message DeleteHardwareResponse {}
