@@ -7,7 +7,7 @@ mod common;
 use std::io::Write;
 
 use common::MockTransport;
-use gantry_connect::value::Kind as VKind;
+use gantry_edge::value::Kind as VKind;
 use gantry_serial_agent::pipeline::{self, Pace, PipelineConfig};
 use gantry_serial_agent::source::open_file;
 use gantry_serial_agent::translate::{Config, TimeAnchor, Translator};
@@ -63,7 +63,7 @@ fn build_stream() -> Vec<u8> {
     out
 }
 
-fn as_f32ish(f: &gantry_connect::Frame) -> f64 {
+fn as_f32ish(f: &gantry_edge::Frame) -> f64 {
     match f.value.as_ref().unwrap().kind.as_ref().unwrap() {
         VKind::F64(v) => *v,
         other => panic!("want f64, got {other:?}"),

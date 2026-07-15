@@ -12,7 +12,7 @@ function readState(): HarnessState {
 
 export interface GantryFixtures {
   state: HarnessState;
-  /** The web base URL with the API pointed at the ephemeral Edge via ?api=. */
+  /** The web base URL with the API pointed at the ephemeral Bench via ?api=. */
   consoleURL: string;
   /** A page already navigated to the console and waiting for React to mount. */
   console: Page;

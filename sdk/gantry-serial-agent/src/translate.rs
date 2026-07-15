@@ -24,7 +24,7 @@
 //! ## Queue / retry
 //!
 //! We drive the [`Transport`] directly with our own bounded, drop-oldest [`Buffer`] (reused from
-//! `gantry-connect`) rather than going through `gantry_connect::Client`. The `Client`'s public
+//! `gantry-edge`) rather than going through `gantry_edge::Client`. The `Client`'s public
 //! `send_*` API cannot set `Frame.packet`, and packets are first-class here — so a batch must be
 //! assembled field-by-field. Publish uses capped exponential backoff ([`RetryConfig`]); a batch
 //! that exhausts retries (or hits a permanent error) is dropped and counted — telemetry, not
@@ -32,9 +32,9 @@
 
 use std::collections::{BTreeMap, VecDeque};
 
-use gantry_connect::buffer::Buffer;
-use gantry_connect::model::{value_bool, value_f64, value_i64, value_raw, value_text};
-use gantry_connect::{
+use gantry_edge::buffer::Buffer;
+use gantry_edge::model::{value_bool, value_f64, value_i64, value_raw, value_text};
+use gantry_edge::{
     ChannelInfo, Frame, FrameBatch, RetryConfig, Transport, TransportError, ValueKind,
 };
 use gantry_wire::{Kind, Record, Value as WireValue};
@@ -462,7 +462,7 @@ pub fn kind_to_valuekind(kind: Kind) -> ValueKind {
 }
 
 /// Convert a decoded wire [`WireValue`] into a proto `Value`.
-fn convert_value(v: WireValue) -> gantry_connect::Value {
+fn convert_value(v: WireValue) -> gantry_edge::Value {
     match v {
         WireValue::F32(x) => value_f64(x as f64),
         WireValue::F64(x) => value_f64(x),

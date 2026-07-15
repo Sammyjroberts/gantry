@@ -16,5 +16,5 @@ plugins:
     opt: paths=source_relative
   # TypeScript (protobuf-es v2 — includes service descriptors for connect-es v2)
   - remote: buf.build/bufbuild/es
-    out: libs/ts/api-client/src/gen
+    out: core/ts/api-client/src/gen
     opt: target=ts

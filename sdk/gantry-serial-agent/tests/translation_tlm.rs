@@ -14,7 +14,7 @@ use std::io::Cursor;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use common::MockTransport;
-use gantry_connect::{value::Kind as VKind, ValueKind};
+use gantry_edge::{value::Kind as VKind, ValueKind};
 use gantry_serial_agent::pipeline::{self, Pace, PipelineConfig};
 use gantry_serial_agent::translate::{Config, TimeAnchor, Translator};
 use gantry_tlm as tlm;
@@ -64,19 +64,19 @@ fn drain_to_vec(out: &mut Vec<u8>) {
     }
 }
 
-fn as_f64(f: &gantry_connect::Frame) -> f64 {
+fn as_f64(f: &gantry_edge::Frame) -> f64 {
     match f.value.as_ref().unwrap().kind.as_ref().unwrap() {
         VKind::F64(v) => *v,
         other => panic!("expected f64, got {other:?}"),
     }
 }
-fn as_i64(f: &gantry_connect::Frame) -> i64 {
+fn as_i64(f: &gantry_edge::Frame) -> i64 {
     match f.value.as_ref().unwrap().kind.as_ref().unwrap() {
         VKind::I64(v) => *v,
         other => panic!("expected i64, got {other:?}"),
     }
 }
-fn as_bool(f: &gantry_connect::Frame) -> bool {
+fn as_bool(f: &gantry_edge::Frame) -> bool {
     match f.value.as_ref().unwrap().kind.as_ref().unwrap() {
         VKind::Flag(v) => *v,
         other => panic!("expected flag, got {other:?}"),
@@ -154,7 +154,7 @@ fn full_session_translates_to_ingest_calls() {
     // ---- Assert registrations ----------------------------------------------------------------
     let regs = mock.registrations();
     // Find the FIRST registration for each packet (session-2 adds a second imu registration).
-    let find_reg = |packet: &str| -> Vec<gantry_connect::ChannelInfo> {
+    let find_reg = |packet: &str| -> Vec<gantry_edge::ChannelInfo> {
         regs.iter()
             .find_map(|(_dev, chans)| {
                 if chans.first().map(|c| c.packet.as_str()) == Some(packet) {

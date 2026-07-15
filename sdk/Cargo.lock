@@ -323,17 +323,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "gantry-connect"
+name = "gantry-edge"
 version = "0.1.0"
 dependencies = [
  "ctrlc",
- "gantry-connect-proto",
- "gantry-transport-http",
+ "gantry-edge-http",
+ "gantry-edge-proto",
  "prost",
 ]
 
 [[package]]
-name = "gantry-connect-proto"
+name = "gantry-edge-http"
+version = "0.1.0"
+dependencies = [
+ "gantry-edge",
+ "gantry-edge-proto",
+ "prost",
+ "serde_json",
+ "tiny_http",
+ "ureq",
+]
+
+[[package]]
+name = "gantry-edge-proto"
 version = "0.1.0"
 dependencies = [
  "prost",
@@ -347,10 +359,10 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "critical-section",
- "gantry-connect",
- "gantry-connect-proto",
+ "gantry-edge",
+ "gantry-edge-http",
+ "gantry-edge-proto",
  "gantry-tlm",
- "gantry-transport-http",
  "gantry-wire",
  "serde_json",
  "serialport",
@@ -375,18 +387,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "gantry-transport-http"
-version = "0.1.0"
-dependencies = [
- "gantry-connect",
- "gantry-connect-proto",
- "prost",
- "serde_json",
- "tiny_http",
- "ureq",
 ]
 
 [[package]]

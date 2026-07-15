@@ -2,7 +2,7 @@
  * Upload queue — bounded, retrying, drop-oldest buffer for capture chunks.
  *
  * Capture produces a self-contained ~2s WebM chunk a few times per minute; each
- * is uploaded fire-and-forget. Uploads can fail transiently (Edge restart, brief
+ * is uploaded fire-and-forget. Uploads can fail transiently (Bench restart, brief
  * network blip), so this queue retries a few times, but it must never grow
  * without bound while a camera keeps recording — so beyond `maxQueue` buffered
  * items the OLDEST is dropped (stale video is worth less than fresh video, and

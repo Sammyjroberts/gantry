@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "query",
+    srcs = [
+        "asserts.go",
+        "downsample.go",
+        "planner.go",
+        "query.go",
+        "value.go",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/core/go/query",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//core/go/stream",
+        "//gen/go/gantry/v1:gantry",
+    ],
+)
+
+go_test(
+    name = "query_test",
+    srcs = [
+        "downsample_test.go",
+        "planner_test.go",
+        "query_test.go",
+    ],
+    embed = [":query"],
+    deps = [
+        "//core/go/stream",
+        "//gen/go/gantry/v1:gantry",
+    ],
+)

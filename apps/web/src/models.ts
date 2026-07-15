@@ -1,5 +1,5 @@
 /**
- * Model-file transport against the Edge server's model directory (same origin
+ * Model-file transport against the Bench server's model directory (same origin
  * as the Connect RPC endpoints — see config.resolveBaseUrl):
  *
  *   GET  /models/            → { "files": ["mr-wobbles.urdf", ...] }

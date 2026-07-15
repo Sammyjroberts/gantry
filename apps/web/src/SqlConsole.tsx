@@ -29,7 +29,7 @@ export interface SqlConsoleProps {
 const STARTER = "SELECT device, packet, channel, count(*) AS n\nFROM tlm\nGROUP BY 1, 2, 3\nORDER BY n DESC\nLIMIT 50;";
 
 const DUCKDB_HINT =
-  "DuckDB engine not installed — drop duckdb.exe into <data-dir>/duckdb/ and restart the Edge.";
+  "DuckDB engine not installed — drop duckdb.exe into <data-dir>/duckdb/ and restart the Bench.";
 
 export default function SqlConsole({ baseUrl, onClose }: SqlConsoleProps) {
   const [sql, setSql] = useState(STARTER);

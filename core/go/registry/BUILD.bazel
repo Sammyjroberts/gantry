@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "registry",
+    srcs = ["registry.go"],
+    importpath = "github.com/Sammyjroberts/gantry/core/go/registry",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//gen/go/gantry/v1:gantry",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_test(
+    name = "registry_test",
+    srcs = [
+        "registry_concurrent_test.go",
+        "registry_test.go",
+    ],
+    embed = [":registry"],
+    deps = ["//gen/go/gantry/v1:gantry"],
+)

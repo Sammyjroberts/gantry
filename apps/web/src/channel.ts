@@ -89,7 +89,7 @@ export function groupByPacket(channels: ChannelInfo[]): PacketGroup[] {
 /**
  * The distinct channel NAMES to request from LiveService.Subscribe for a set of
  * selected keys. The server routes by channel name (packet is frame metadata,
- * not a subject token — see libs/go/stream/subject.go), so the request carries
+ * not a subject token — see core/go/stream/subject.go), so the request carries
  * names; returning frames are re-keyed by (packet, name) on the client.
  */
 export function subscribeNames(selectedKeys: Iterable<string>): string[] {

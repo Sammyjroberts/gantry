@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 use gantry_wire::{Decoder, Record};
 
 use crate::translate::{DecoderCounters, Translator};
-use gantry_connect::Transport;
+use gantry_edge::Transport;
 
 /// Replay pacing for file sources.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

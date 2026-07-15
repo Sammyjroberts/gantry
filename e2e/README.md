@@ -1,6 +1,6 @@
 # Gantry browser e2e (Playwright)
 
-The **top tier of the test pyramid**: the real Edge binary + a live telemetry
+The **top tier of the test pyramid**: the real Bench binary + a live telemetry
 feeder, driven through a headless Chromium against the production web build. This
 is the only tier that exercises the browser, the ConnectRPC/HTTP wire, WebGL, and
 `getUserMedia`/`MediaRecorder` together — the integration surface no unit or
@@ -11,8 +11,8 @@ video-capture bug — see *Notes* below.)
 
 | Tier | What it covers | Where it lives | Runner |
 |---|---|---|---|
-| **Unit** | Pure modules, per package — zoom/playback/history math, CSV/SQL shaping, registry kind-inference, `gantry-wire` codec, `tlm!` derive. | `apps/web/src/*.test.ts(x)`, `libs/go/**/​*_test.go`, `sdk/**/tests`, `sdk/**/src` unit tests. | `vitest`, `go test`, `cargo test` |
-| **Integration** | Multiple parts wired in-process: the Edge `App`/handler e2e tests (ingest → JetStream → query/export/SQL/video over `httptest`), tlm-synthesized sessions round-tripped through the wire decoder, the serial-agent → real-Edge test. | `apps/edge/internal/server/*_e2e_test.go`, `libs/go/segments`, `sdk/gantry-serial-agent/tests/e2e_edge.rs` (`#[ignore]`). | `go test`, `cargo test` |
+| **Unit** | Pure modules, per package — zoom/playback/history math, CSV/SQL shaping, registry kind-inference, `gantry-wire` codec, `tlm!` derive. | `apps/web/src/*.test.ts(x)`, `core/go/**/​*_test.go`, `sdk/**/tests`, `sdk/**/src` unit tests. | `vitest`, `go test`, `cargo test` |
+| **Integration** | Multiple parts wired in-process: the Bench `App`/handler e2e tests (ingest → JetStream → query/export/SQL/video over `httptest`), tlm-synthesized sessions round-tripped through the wire decoder, the serial-agent → real-Bench test. | `apps/bench/internal/server/*_e2e_test.go`, `core/go/segments`, `sdk/gantry-serial-agent/tests/e2e_edge.rs` (`#[ignore]`). | `go test`, `cargo test` |
 | **e2e (this suite)** | The browser + the real `edge` binary + a live feeder: charts, experiments/CSV, time-nav, replay, SQL console, 3D (WebGL), video capture. | `e2e/specs/*.spec.ts` | `playwright test` |
 
 Rule of thumb: push a behavior **down** the pyramid whenever you can (a pure
@@ -34,7 +34,7 @@ real media capture, real cross-origin HTTP.
 
 ## Running it
 
-Prerequisites: **Go** on `PATH` (the harness builds Edge), and the **web build**
+Prerequisites: **Go** on `PATH` (the harness builds Bench), and the **web build**
 must exist — `pnpm -r build` from the repo root (global-setup fails loudly if
 `apps/web/dist/index.html` is missing).
 
@@ -55,17 +55,17 @@ npm run report              # open the last HTML report (CI uploads this on fail
 `global-setup.ts` runs once and owns all process lifecycle, then hands the chosen
 URLs + PIDs to the workers via `.playwright-state.json` (git-ignored):
 
-1. **Build Edge to a TEMP path** — `go build -o <tmp>/edge[.exe] ./apps/edge/cmd/edge`
-   (never `bin/`, which a live Edge owns). Override with `E2E_EDGE_BIN`.
+1. **Build Bench to a TEMP path** — `go build -o <tmp>/edge[.exe] ./apps/bench/cmd/bench`
+   (never `bin/`, which a live Bench owns). Override with `E2E_BENCH_BIN`.
 2. **Provision DuckDB** into `<tmp>/data/duckdb/` so the SQL engine turns on
-   (`DirProvider`, see `libs/go/duckdb/provider.go`). Order: `GANTRY_DUCKDB` env
-   (CI downloads + caches it) → a local copy under `data/edge/duckdb/` (copied,
+   (`DirProvider`, see `core/go/duckdb/provider.go`). Order: `GANTRY_DUCKDB` env
+   (CI downloads + caches it) → a local copy under `data/bench/duckdb/` (copied,
    never mutated). Absent → the SQL spec asserts the graceful hint and skips.
-3. **Start Edge** on an OS-assigned free port with the temp data dir.
+3. **Start Bench** on an OS-assigned free port with the temp data dir.
 4. **Serve the built console** (`harness/static-server.mjs`, Node builtins only)
    on another free port. The app reads its API base from `?api=` (see
-   `apps/web/src/config.ts`), so we point it at the ephemeral Edge with **no
-   rebuild or re-embed** — cross-origin is fine (Edge reflects localhost origins).
+   `apps/web/src/config.ts`), so we point it at the ephemeral Bench with **no
+   rebuild or re-embed** — cross-origin is fine (Bench reflects localhost origins).
 5. **Start the feeder** (`harness/feeder.mjs`): a Rust-free, dependency-free Node
    script that POSTs Connect-protocol JSON `PublishBatch` at ~30 Hz for 4 channels
    (3 packet-tagged — `imu.pitch_deg`, `imu.roll_deg`, `power.voltage` — plus an
@@ -75,7 +75,7 @@ URLs + PIDs to the workers via `.playwright-state.json` (git-ignored):
 
 ### Flake mitigations
 
-- **One worker, not parallel**: every spec shares one Edge + feeder, and some
+- **One worker, not parallel**: every spec shares one Bench + feeder, and some
   mutate server state (experiments, video chunks). Serial keeps them deterministic.
 - **No arbitrary sleeps** for readiness — `expect.poll`/`toBeVisible` with
   timeouts everywhere. The only `waitForTimeout`s are *intentional dwells* so an
@@ -96,11 +96,11 @@ URLs + PIDs to the workers via `.playwright-state.json` (git-ignored):
 ## Notes
 
 - **Bug caught by this tier:** `MediaRecorder` tags blobs `video/webm;codecs=vp9`,
-  but the Edge video allowlist did an exact match on `video/webm` and returned
+  but the Bench video allowlist did an exact match on `video/webm` and returned
   **415**, so capture was broken end-to-end in production — invisible to the
-  adapter-mocked unit tests. Fixed at the root (`libs/go/video/service.go` now
+  adapter-mocked unit tests. Fixed at the root (`core/go/video/service.go` now
   normalizes to the base media type) with a regression test
-  (`libs/go/video/mime_test.go`).
+  (`core/go/video/mime_test.go`).
 
 ## Suggested `justfile` recipes
 
@@ -110,7 +110,7 @@ The `justfile` is owned elsewhere; propose adding:
 # Full local test sweep across every tier.
 test-all: test-go test-rust test-web e2e
 
-# Browser e2e (builds web first; harness builds Edge + starts a feeder).
+# Browser e2e (builds web first; harness builds Bench + starts a feeder).
 e2e:
     pnpm -r build
     cd e2e && npm install && npm run install:browsers && npm test

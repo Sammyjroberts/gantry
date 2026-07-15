@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "models",
+    srcs = ["models.go"],
+    importpath = "github.com/Sammyjroberts/gantry/core/go/models",
+    visibility = ["//visibility:public"],
+    deps = ["//core/go/blob"],
+)
+
+go_test(
+    name = "models_test",
+    srcs = ["models_test.go"],
+    deps = [
+        ":models",
+        "//core/go/blob",
+    ],
+)

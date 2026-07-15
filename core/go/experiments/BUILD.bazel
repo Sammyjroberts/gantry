@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "experiments",
+    srcs = [
+        "handler.go",
+        "replay.go",
+        "service.go",
+        "store.go",
+        "value.go",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/core/go/experiments",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//core/go/stream",
+        "//gen/go/gantry/v1:gantry",
+        "//gen/go/gantry/v1/gantryv1connect",
+        "@com_connectrpc_connect//:connect",
+        "@com_github_nats_io_nats_go//:nats_go",
+        "@com_github_nats_io_nats_go//jetstream",
+    ],
+)
+
+go_test(
+    name = "experiments_test",
+    srcs = ["experiments_test.go"],
+    deps = [
+        ":experiments",
+        "//core/go/benchdb",
+        "//gen/go/gantry/v1:gantry",
+    ],
+)

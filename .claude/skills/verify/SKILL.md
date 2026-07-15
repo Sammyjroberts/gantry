@@ -5,24 +5,24 @@ Build/launch/drive recipe for verifying changes end-to-end on Windows.
 ## Build
 
 ```sh
-just edge-release        # pnpm web build -> copied into apps/edge/internal/ui/dist -> bin/edge.exe
+just bench-release        # pnpm web build -> copied into apps/bench/internal/ui/dist -> bin/bench.exe
 ```
 
 Gotchas:
 - `just` on Windows needs the pinned Git Bash (`set windows-shell` in justfile) — WSL bash in System32 shadows it otherwise.
 - Fresh PowerShell sessions may lack winget-installed tools; refresh with
   `$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')`.
-- `go build -o bin/ ...` (trailing slash) so Windows gets `edge.exe` — an extensionless binary won't exec.
-- `just edge-release` overwrites the committed placeholder `apps/edge/internal/ui/dist/index.html`; restore the placeholder before committing.
+- `go build -o bin/ ...` (trailing slash) so Windows gets `bench.exe` — an extensionless binary won't exec.
+- `just bench-release` overwrites the committed placeholder `apps/bench/internal/ui/dist/index.html`; restore the placeholder before committing.
 
 ## Launch
 
 ```powershell
-bin\edge.exe -data-dir .\data\edge-verify     # serves UI + ConnectRPC on :4780 (background it)
-cd sdk; cargo run -p gantry-connect --example simulator   # 6 channels @ 50Hz, device sim-robot
+bin\bench.exe -data-dir .\data\bench-verify     # serves UI + ConnectRPC on :4780 (background it)
+cd sdk; cargo run -p gantry-edge --example simulator   # 6 channels @ 50Hz, device sim-robot
 ```
 
-Simulator prints `frames_sent/buffered/dropped/last_acked_seq` every 2s — buffered climbing with edge down, draining after connect, is the store-and-forward behavior working.
+Simulator prints `frames_sent/buffered/dropped/last_acked_seq` every 2s — buffered climbing with bench down, draining after connect, is the store-and-forward behavior working.
 
 ## Drive the surface
 
@@ -34,4 +34,4 @@ Simulator prints `frames_sent/buffered/dropped/last_acked_seq` every 2s — buff
 
 ## Teardown
 
-`taskkill /IM edge.exe /F; taskkill /IM simulator.exe /F`, delete `data\edge-verify`, restore placeholder index.html.
+`taskkill /IM bench.exe /F; taskkill /IM simulator.exe /F`, delete `data\bench-verify`, restore placeholder index.html.

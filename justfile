@@ -29,17 +29,17 @@ build-rust:
 build-web:
     pnpm install --frozen-lockfile && pnpm -r build
 
-# Build the web console and embed it into the Edge binary's UI dir.
+# Build the web console and embed it into the Bench binary's UI dir.
 # Guarded so a missing web build can never empty the embed dir (go:embed would break).
 embed-ui: build-web
     test -f apps/web/dist/index.html
-    rm -rf apps/edge/internal/ui/dist
-    cp -r apps/web/dist apps/edge/internal/ui/dist
+    rm -rf apps/bench/internal/ui/dist
+    cp -r apps/web/dist apps/bench/internal/ui/dist
 
-# Full release build of Edge with the real UI embedded.
-# Trailing slash lets go name the binary per-OS (edge vs edge.exe).
-edge-release: embed-ui
-    go build -o bin/ ./apps/edge/cmd/edge
+# Full release build of Bench with the real UI embedded.
+# Trailing slash lets go name the binary per-OS (bench vs bench.exe).
+bench-release: embed-ui
+    go build -o bin/ ./apps/bench/cmd/bench
 
 # Run all tests
 test: test-go test-rust test-web
@@ -47,7 +47,7 @@ test: test-go test-rust test-web
 # Every tier: unit + integration + browser e2e
 test-all: test-go test-rust test-web e2e
 
-# Browser e2e (Playwright + real edge binary + fake camera). First run installs browsers.
+# Browser e2e (Playwright + real bench binary + fake camera). First run installs browsers.
 e2e:
     pnpm -r build
     cd e2e && npm install && npm run install:browsers && npm test
@@ -73,15 +73,15 @@ test-tlm:
     cd sdk && cargo test -p gantry-wire -p gantry-tlm
     cd sdk && cargo test -p gantry-tlm --features enabled
 
-# Forward a live serial device (robot USB-CDC) to a local Edge
+# Forward a live serial device (robot USB-CDC) to a local Bench
 serial-agent port baud="115200" endpoint="http://localhost:4780":
     cd sdk && cargo run -p gantry-serial-agent --release -- --port {{port}} --baud {{baud}} --endpoint {{endpoint}}
 
-# Replay a spool/black-box recording into Edge (a file IS a paused stream)
+# Replay a spool/black-box recording into Bench (a file IS a paused stream)
 serial-replay file endpoint="http://localhost:4780" rate="max":
     cd sdk && cargo run -p gantry-serial-agent --release -- --from-file {{file}} --endpoint {{endpoint}} --rate {{rate}}
 
-# Serial agent e2e against a freshly built Edge (needs Go on PATH)
+# Serial agent e2e against a freshly built Bench (needs Go on PATH)
 test-serial-e2e:
     cd sdk && cargo test -p gantry-serial-agent --test e2e_edge -- --ignored --nocapture
 
@@ -90,17 +90,17 @@ sdk-nostd:
     cd sdk && cargo build -p gantry-wire --no-default-features --target thumbv7em-none-eabi
     cd sdk && cargo build -p gantry-tlm --no-default-features --features enabled --target thumbv7em-none-eabi
 
-# Run the Edge binary (dev)
-edge:
-    go run ./apps/edge/cmd/edge
+# Run the Bench binary (dev)
+bench:
+    go run ./apps/bench/cmd/bench
 
-# Web dev server (Vite, proxies to Edge)
+# Web dev server (Vite, proxies to Bench)
 web:
     cd apps/web && pnpm dev
 
-# Run the Rust demo emitter against a local Edge
+# Run the Rust demo emitter against a local Bench
 demo-emitter:
-    cd sdk && cargo run -p gantry-connect --example simulator
+    cd sdk && cargo run -p gantry-edge --example simulator
 
 # Local backend infra (NATS, ClickHouse, Postgres, MinIO)
 compose-up:

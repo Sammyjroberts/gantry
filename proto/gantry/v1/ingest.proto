@@ -4,7 +4,7 @@ package gantry.v1;
 
 import "gantry/v1/telemetry.proto";
 
-// Telemetry ingest. Exposed identically by Edge and Backend — emitters do not
+// Telemetry ingest. Exposed identically by Bench and Cloud — emitters do not
 // care which one they are talking to. Served over ConnectRPC, so plain
 // HTTP POST + JSON works alongside gRPC.
 service IngestService {

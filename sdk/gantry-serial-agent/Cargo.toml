@@ -1,6 +1,6 @@
 [package]
 name = "gantry-serial-agent"
-description = "Host-side collector: turns a `docs/WIRE.md` device byte stream (USB-CDC/UART/file spool) into gantry.v1 ingest calls against an Edge/Backend endpoint. Std, thread-free, no async runtime."
+description = "Host-side collector: turns a `docs/WIRE.md` device byte stream (USB-CDC/UART/file spool) into gantry.v1 ingest calls against an Bench/Cloud endpoint. Std, thread-free, no async runtime."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -21,10 +21,10 @@ gantry-wire = { path = "../gantry-wire", version = "0.1.0", features = ["std"] }
 # SDK core: the `Transport` trait + `TransportError` + `RetryConfig`, the bounded
 # drop-oldest `Buffer`, the proto message types, and `Value` constructors. Reused
 # rather than reinvented (data-model == transport seam per ARCHITECTURE.md).
-gantry-connect = { path = "../gantry-connect", version = "0.1.0" }
-gantry-connect-proto = { path = "../gantry-connect-proto", version = "0.1.0" }
+gantry-edge = { path = "../gantry-edge", version = "0.1.0" }
+gantry-edge-proto = { path = "../gantry-edge-proto", version = "0.1.0" }
 # Default Connect/HTTP transport we forward through (ureq, blocking, no tokio).
-gantry-transport-http = { path = "../gantry-transport-http", version = "0.1.0" }
+gantry-edge-http = { path = "../gantry-edge-http", version = "0.1.0" }
 # Serial port I/O (blocking, cross-platform; a COM port on Windows).
 serialport = "4"
 # Lean CLI.
@@ -35,6 +35,6 @@ clap = { version = "4", features = ["derive"] }
 gantry-tlm = { path = "../gantry-tlm", version = "0.1.0", features = ["enabled"] }
 critical-section = { version = "1", features = ["std"] }
 tempfile = "3"
-# The optional, #[ignore]d end-to-end test POSTs JSON to the live Edge.
+# The optional, #[ignore]d end-to-end test POSTs JSON to the live Bench.
 ureq = "2"
 serde_json = "1"

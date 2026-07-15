@@ -1,12 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Gantry browser e2e — the top of the test pyramid: the real Edge binary + a
+ * Gantry browser e2e — the top of the test pyramid: the real Bench binary + a
  * live telemetry feeder driven through Chromium. Unit (per-package) and
  * integration (in-process App/tlm) tiers live in the language toolchains; see
  * e2e/README.md.
  *
- * One worker, not parallel: every spec shares ONE Edge instance + feeder, and
+ * One worker, not parallel: every spec shares ONE Bench instance + feeder, and
  * some specs mutate server state (experiments, video chunks). Serial keeps them
  * deterministic. retries=1 absorbs the rare cold-start hiccup without masking
  * real failures.

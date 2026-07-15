@@ -24,7 +24,7 @@ test("experiment lifecycle, CSV export, and region zoom", async ({ console: page
   expect(path).toBeTruthy();
   const csv = readFileSync(path!, "utf8");
   const lines = csv.split(/\r?\n/).filter((l) => l.length > 0);
-  // Correct long-format header (see apps/edge/internal/server/export.go longHeader).
+  // Correct long-format header (see apps/bench/internal/server/export.go longHeader).
   expect(lines[0]).toBe("ts_ns,ts_iso,device_id,packet,channel,kind,value");
   // Non-empty: at least one data row captured during the 3s window.
   expect(lines.length).toBeGreaterThan(1);

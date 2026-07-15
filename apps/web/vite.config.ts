@@ -1,10 +1,10 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
-// Dev server proxies the Connect RPC path prefix to a running Edge binary so
+// Dev server proxies the Connect RPC path prefix to a running Bench binary so
 // `pnpm dev` works against localhost:4780 while the app is served from Vite.
 // Production build emits a fully static, same-origin bundle into dist/ that the
-// Edge binary embeds via go:embed.
+// Bench binary embeds via go:embed.
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -15,13 +15,13 @@ export default defineConfig({
         changeOrigin: true,
       },
       // Model files for the 3D viewer/editor (GET list, GET/PUT files) are served
-      // by the Edge binary at the same origin in prod; proxy them in dev too.
+      // by the Bench binary at the same origin in prod; proxy them in dev too.
       "/models": {
         target: "http://localhost:4780",
         changeOrigin: true,
       },
       // Video chunk capture/replay (POST/GET /video/chunks, GET /video/cameras)
-      // and the DuckDB SQL console (POST /sql) — same-origin on the Edge in prod.
+      // and the DuckDB SQL console (POST /sql) — same-origin on the Bench in prod.
       "/video": {
         target: "http://localhost:4780",
         changeOrigin: true,

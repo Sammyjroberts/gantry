@@ -5,7 +5,7 @@
 //
 // Serves files under distDir; unknown paths fall back to index.html (SPA). The
 // app reads its API base from the ?api= query param (see apps/web/src/config.ts),
-// so the harness points it at the ephemeral Edge without any rebuild.
+// so the harness points it at the ephemeral Bench without any rebuild.
 
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";

@@ -6,7 +6,7 @@
 mod common;
 
 use common::MockTransport;
-use gantry_connect::{value::Kind as VKind, ValueKind};
+use gantry_edge::{value::Kind as VKind, ValueKind};
 use gantry_serial_agent::translate::{Config, DecoderCounters, TimeAnchor, Translator};
 use gantry_wire::{Field, Kind, Record, Value as WireValue};
 
@@ -20,7 +20,7 @@ fn field(name: &str, kind: Kind, unit: &str) -> Field {
     }
 }
 
-fn mk<T: gantry_connect::Transport>(sink: T, host_ns: i128, anchor: TimeAnchor) -> Translator<T> {
+fn mk<T: gantry_edge::Transport>(sink: T, host_ns: i128, anchor: TimeAnchor) -> Translator<T> {
     let cfg = Config {
         batch_max_frames: 10_000,
         anchor,
@@ -29,7 +29,7 @@ fn mk<T: gantry_connect::Transport>(sink: T, host_ns: i128, anchor: TimeAnchor) 
     Translator::new(sink, Box::new(move || host_ns), cfg)
 }
 
-fn i64_of(f: &gantry_connect::Frame) -> i64 {
+fn i64_of(f: &gantry_edge::Frame) -> i64 {
     match f.value.as_ref().unwrap().kind.as_ref().unwrap() {
         VKind::I64(v) => *v,
         other => panic!("want i64, got {other:?}"),

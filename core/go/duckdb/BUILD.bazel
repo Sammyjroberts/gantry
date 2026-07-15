@@ -1,0 +1,21 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "duckdb",
+    srcs = [
+        "engine.go",
+        "provider.go",
+        "validate.go",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/core/go/duckdb",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "duckdb_test",
+    srcs = ["engine_test.go"],
+    deps = [
+        ":duckdb",
+        "@com_github_parquet_go_parquet_go//:parquet-go",
+    ],
+)

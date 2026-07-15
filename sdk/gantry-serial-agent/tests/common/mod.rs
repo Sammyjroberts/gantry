@@ -4,7 +4,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use gantry_connect::{ChannelInfo, Frame, FrameBatch, Transport, TransportError};
+use gantry_edge::{ChannelInfo, Frame, FrameBatch, Transport, TransportError};
 
 /// Everything the mock has observed.
 #[derive(Default)]

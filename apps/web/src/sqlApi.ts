@@ -1,5 +1,5 @@
 /**
- * SQL transport against the Edge server's POST /sql endpoint (same origin as the
+ * SQL transport against the Bench server's POST /sql endpoint (same origin as the
  * Connect RPC + /models + /video routes — see config.resolveBaseUrl).
  *
  *   POST /sql {"sql":"SELECT …"} → 200 {columns,rows,row_count,truncated}

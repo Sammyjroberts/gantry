@@ -18,7 +18,7 @@ export const EXE = IS_WIN ? ".exe" : "";
 export interface HarnessState {
   /** Base URL of the static web server (the built console). */
   webURL: string;
-  /** Edge API base URL (passed to the app via ?api=). */
+  /** Bench API base URL (passed to the app via ?api=). */
   apiURL: string;
   /** PIDs to kill on teardown. */
   pids: number[];

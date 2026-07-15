@@ -1,0 +1,41 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "segments",
+    srcs = [
+        "catalog.go",
+        "reader.go",
+        "row.go",
+        "util.go",
+        "writer.go",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/core/go/segments",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//core/go/blob",
+        "//core/go/query",
+        "//core/go/stream",
+        "//gen/go/gantry/v1:gantry",
+        "@com_github_nats_io_nats_go//:nats_go",
+        "@com_github_nats_io_nats_go//jetstream",
+        "@com_github_parquet_go_parquet_go//:parquet-go",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_test(
+    name = "segments_test",
+    srcs = [
+        "crash_window_test.go",
+        "segments_test.go",
+    ],
+    embed = [":segments"],
+    deps = [
+        "//core/go/benchdb",
+        "//core/go/blob",
+        "//core/go/ingest",
+        "//core/go/registry",
+        "//core/go/stream",
+        "//gen/go/gantry/v1:gantry",
+    ],
+)

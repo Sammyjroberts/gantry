@@ -15,7 +15,7 @@ async function closeHardware(page: Page): Promise<void> {
   await expect(page.locator(".hw-panel")).toHaveCount(0);
 }
 
-// Spec (hardware) — the device identity slice end to end against the real Edge:
+// Spec (hardware) — the device identity slice end to end against the real Bench:
 //   promote the feeder device → rename it → the name surfaces in the channel
 //   sidebar → set a 3D pose binding → reload → the binding survived server-side
 //   (proving viz_config_json round-trips, not localStorage).

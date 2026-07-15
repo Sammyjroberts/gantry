@@ -1,5 +1,5 @@
 //! `gantry-serial-agent` — read a `docs/WIRE.md` byte stream (a COM port or a spool file) and
-//! forward it to a Gantry Edge/Backend ingest endpoint.
+//! forward it to a Gantry Bench/Cloud ingest endpoint.
 //!
 //! ```text
 //! gantry-serial-agent --port COM7 [--baud 115200] [--endpoint http://localhost:4780] [--tee-file flight.gtl]
@@ -14,11 +14,11 @@ use std::time::UNIX_EPOCH;
 use clap::{Parser, ValueEnum};
 use gantry_wire::Decoder;
 
+use gantry_edge_http::HttpTransport;
 use gantry_serial_agent::pipeline::{self, Pace, PipelineConfig};
 use gantry_serial_agent::source::{open_file, open_serial, TeeReader};
 use gantry_serial_agent::system_clock;
 use gantry_serial_agent::translate::{Config, TimeAnchor, Translator};
-use gantry_transport_http::HttpTransport;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, ValueEnum)]
 enum RateArg {
@@ -31,7 +31,7 @@ enum RateArg {
 #[derive(Parser, Debug)]
 #[command(
     name = "gantry-serial-agent",
-    about = "Forward a Gantry device wire stream (serial or spool file) to an Edge/Backend endpoint."
+    about = "Forward a Gantry device wire stream (serial or spool file) to an Bench/Cloud endpoint."
 )]
 struct Cli {
     /// Serial port to read (e.g. COM7 on Windows, /dev/ttyACM0 on Linux). Mutually exclusive

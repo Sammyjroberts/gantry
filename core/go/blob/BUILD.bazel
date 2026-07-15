@@ -1,0 +1,26 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "blob",
+    srcs = [
+        "blob.go",
+        "fsblob.go",
+        "s3blob.go",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/core/go/blob",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_minio_minio_go_v7//:minio-go",
+        "@com_github_minio_minio_go_v7//pkg/credentials",
+    ],
+)
+
+go_test(
+    name = "blob_test",
+    srcs = ["blob_test.go"],
+    deps = [
+        ":blob",
+        "@com_github_minio_minio_go_v7//:minio-go",
+        "@com_github_minio_minio_go_v7//pkg/credentials",
+    ],
+)

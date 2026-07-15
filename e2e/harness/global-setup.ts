@@ -13,28 +13,28 @@ import {
   type HarnessState,
 } from "./util";
 
-/** Build the Edge binary to a TEMP path (never bin/, which the live edge owns). */
-function buildEdge(tempDir: string): string {
-  const bin = join(tempDir, `edge${EXE}`);
-  const override = process.env.E2E_EDGE_BIN;
+/** Build the Bench binary to a TEMP path (never bin/, which the live bench owns). */
+function buildBench(tempDir: string): string {
+  const bin = join(tempDir, `bench${EXE}`);
+  const override = process.env.E2E_BENCH_BIN;
   if (override && existsSync(override)) {
-    console.log(`[global-setup] using prebuilt edge: ${override}`);
+    console.log(`[global-setup] using prebuilt bench: ${override}`);
     return override;
   }
-  console.log("[global-setup] go build edge -> temp ...");
-  const r = spawnSync("go", ["build", "-o", bin, "./apps/edge/cmd/edge"], {
+  console.log("[global-setup] go build bench -> temp ...");
+  const r = spawnSync("go", ["build", "-o", bin, "./apps/bench/cmd/bench"], {
     cwd: REPO_ROOT,
     stdio: "inherit",
   });
-  if (r.status !== 0) throw new Error("go build edge failed");
+  if (r.status !== 0) throw new Error("go build bench failed");
   return bin;
 }
 
 /**
- * Provision a DuckDB binary into <dataDir>/duckdb/ so the Edge SQL engine turns
- * on (DirProvider resolution, see libs/go/duckdb/provider.go). Order:
+ * Provision a DuckDB binary into <dataDir>/duckdb/ so the Bench SQL engine turns
+ * on (DirProvider resolution, see core/go/duckdb/provider.go). Order:
  *   1. GANTRY_DUCKDB env (CI downloads + caches it here) — inherited by the child.
- *   2. A local copy under data/edge/duckdb/ (bench box) — copied, never touched.
+ *   2. A local copy under data/bench/duckdb/ (bench box) — copied, never touched.
  * Returns true when SQL will be available.
  */
 function provisionDuckDB(dataDir: string): boolean {
@@ -43,7 +43,7 @@ function provisionDuckDB(dataDir: string): boolean {
     console.log(`[global-setup] duckdb via GANTRY_DUCKDB=${env}`);
     return true; // child inherits process.env; EnvProvider picks it up
   }
-  const local = join(REPO_ROOT, "data", "edge", "duckdb", `duckdb${EXE}`);
+  const local = join(REPO_ROOT, "data", "bench", "duckdb", `duckdb${EXE}`);
   if (existsSync(local)) {
     const dst = join(dataDir, "duckdb");
     mkdirSync(dst, { recursive: true });
@@ -99,12 +99,12 @@ export default async function globalSetup(): Promise<void> {
   const dataDir = join(tempDir, "data");
   mkdirSync(dataDir, { recursive: true });
 
-  const edgeBin = buildEdge(tempDir);
+  const benchBin = buildBench(tempDir);
   const duckdb = provisionDuckDB(dataDir);
 
-  const edgePort = await freePort();
+  const benchPort = await freePort();
   const webPort = await freePort();
-  const apiURL = `http://127.0.0.1:${edgePort}`;
+  const apiURL = `http://127.0.0.1:${benchPort}`;
   const webURL = `http://127.0.0.1:${webPort}`;
 
   const children: ChildProcess[] = [];
@@ -115,13 +115,13 @@ export default async function globalSetup(): Promise<void> {
     return c;
   };
 
-  // 1. Edge on a random port, temp data dir.
-  const edge = spawnChild(
-    edgeBin,
-    ["--port", String(edgePort), "--data-dir", dataDir],
-    "edge",
+  // 1. Bench on a random port, temp data dir.
+  const bench = spawnChild(
+    benchBin,
+    ["--port", String(benchPort), "--data-dir", dataDir],
+    "bench",
   );
-  await waitHTTP(apiURL, "edge to serve");
+  await waitHTTP(apiURL, "bench to serve");
 
   // 2. Static server for the built console.
   const web = spawnChild(
@@ -142,7 +142,7 @@ export default async function globalSetup(): Promise<void> {
   const state: HarnessState = {
     webURL,
     apiURL,
-    pids: [edge.pid, web.pid, feeder.pid].filter((p): p is number => typeof p === "number"),
+    pids: [bench.pid, web.pid, feeder.pid].filter((p): p is number => typeof p === "number"),
     tempDir,
     duckdb,
   };

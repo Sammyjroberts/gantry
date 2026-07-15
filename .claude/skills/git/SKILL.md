@@ -43,13 +43,13 @@ Use exactly one of these; never invent a scope silently — add it to this list 
 
 | scope | area |
 |---|---|
-| `edge` | `apps/edge` (Go single binary) |
-| `backend` | `apps/backend` (ingestd/queryd/controld) |
+| `bench` | `apps/bench` (Go single binary) |
+| `cloud` | `apps/cloud` (ingestd/queryd/controld) |
 | `web` | `apps/web` (TS/React console) |
-| `sdk` | `sdk/` (Rust Connect SDK) |
+| `sdk` | `sdk/` (Rust Edge SDK) |
 | `proto` | `proto/gantry/v1` contracts |
-| `libs-go` | `libs/go` shared engine |
-| `libs-ts` | `libs/ts` shared web packages |
+| `core-go` | `core/go` shared engine |
+| `core-ts` | `core/ts` shared web packages |
 | `deploy` | `deploy/` compose/terraform/helm |
 | `bazel` | Bazel/bzlmod wiring, BUILD files |
 | `docs` | `docs/` architecture + ADRs |
@@ -89,18 +89,18 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 ## GOOD examples (this repo's domains)
 
 - `feat(sdk): add spool sink with drop-oldest ring buffer`
-- `fix(edge): flush stream-open response before first frame`
-- `perf(libs-go): pre-aggregate segment rollups for zoomed-out plots`
-- `refactor(web): extract ring-buffer timeseries into libs-ts`
+- `fix(bench): flush stream-open response before first frame`
+- `perf(core-go): pre-aggregate segment rollups for zoomed-out plots`
+- `refactor(web): extract ring-buffer timeseries into core-ts`
 - `build(bazel): pin rules_go 0.61.1 for Go 1.26 toolchain`
 - `docs(proto): document last-per-subject replay semantics`
 
 ## BAD examples (and the fix)
 
-- `Fixed a bug in edge` → `fix(edge): stop dropping frames on reconnect`
+- `Fixed a bug in bench` → `fix(bench): stop dropping frames on reconnect`
   (type lowercase, imperative, no vague "a bug").
 - `feat(engine): new query path` → scope `engine` is not in the map; use
-  `feat(libs-go): add [t1,t2] segment query path`.
+  `feat(core-go): add [t1,t2] segment query path`.
 - `update stuff` → missing type/scope/intent; e.g. `chore: bump gitignore for bazel outputs`.
 
 ## Release mapping (future release-please manifest mode)

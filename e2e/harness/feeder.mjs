@@ -2,7 +2,7 @@
 //
 //   node feeder.mjs <apiBaseURL> [hz]
 //
-// POSTs Connect-protocol JSON to the Edge IngestService at ~30 Hz. No Rust, no
+// POSTs Connect-protocol JSON to the Bench IngestService at ~30 Hz. No Rust, no
 // proto tooling: the JSON wire shapes are hand-rolled from proto/gantry/v1
 // (ingest.proto + telemetry.proto). Connect JSON accepts a plain HTTP POST with
 // the Connect-Protocol-Version header (curl-able by design; see ARCHITECTURE.md).

@@ -56,16 +56,16 @@ jobs:
               - '.github/workflows/ci.yml'
             web:
               - 'apps/web/**'
-              - 'libs/ts/**'
+              - 'core/ts/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - '.github/workflows/ci.yml'
             e2e:
               - 'apps/web/**'
-              - 'libs/ts/**'
-              - 'apps/edge/**'
-              - 'libs/go/**'
+              - 'core/ts/**'
+              - 'apps/bench/**'
+              - 'core/go/**'
               - 'gen/go/**'
               - 'proto/**'
               - 'e2e/**'
@@ -94,11 +94,11 @@ jobs:
         run: buf format --diff --exit-code
 
   # ---------------------------------------------------------------------------
-  # Go: shared engine (libs/go) + apps (edge, backend). Build, vet, race-test.
+  # Go: shared engine (core/go) + apps (bench, cloud). Build, vet, race-test.
   # ubuntu runners ship gcc, so we run the whole suite under -race (the Windows
   # bench box can't — no C toolchain — so this is where data races are caught).
   # A pinned DuckDB CLI is provisioned + GANTRY_DUCKDB exported so the embedded
-  # SQL integration tests (duckdb engine + edge /sql end-to-end) actually RUN
+  # SQL integration tests (duckdb engine + bench /sql end-to-end) actually RUN
   # instead of skipping.
   # ---------------------------------------------------------------------------
   go:
@@ -135,9 +135,9 @@ jobs:
         run: go test -race ./...
 
   # ---------------------------------------------------------------------------
-  # Rust: the Connect SDK (cargo workspace in sdk/). Adds the tlm ENABLED-feature
-  # suite, the no_std MCU-target builds, and the serial-agent → real-Edge e2e
-  # (which builds the Go edge binary, so a Go toolchain is added here too).
+  # Rust: the Edge SDK (cargo workspace in sdk/). Adds the tlm ENABLED-feature
+  # suite, the no_std MCU-target builds, and the serial-agent → real-Bench e2e
+  # (which builds the Go bench binary, so a Go toolchain is added here too).
   # ---------------------------------------------------------------------------
   rust:
     needs: changes
@@ -158,7 +158,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: sdk
-      # Go is needed by the serial-agent e2e (it builds ./apps/edge/cmd/edge).
+      # Go is needed by the serial-agent e2e (it builds ./apps/bench/cmd/bench).
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -177,7 +177,7 @@ jobs:
         run: |
           cargo build -p gantry-wire --no-default-features --target thumbv7em-none-eabi
           cargo build -p gantry-tlm --no-default-features --features enabled --target thumbv7em-none-eabi
-      - name: serial-agent e2e (builds + drives real Edge)
+      - name: serial-agent e2e (builds + drives real Bench)
         run: cargo test -p gantry-serial-agent --test e2e_edge -- --ignored
 
   # ---------------------------------------------------------------------------
@@ -202,8 +202,8 @@ jobs:
         run: pnpm -r test
 
   # ---------------------------------------------------------------------------
-  # Browser e2e: the real edge binary + a Node telemetry feeder driven through
-  # Playwright/Chromium against the production web build. Needs Go (edge build),
+  # Browser e2e: the real bench binary + a Node telemetry feeder driven through
+  # Playwright/Chromium against the production web build. Needs Go (bench build),
   # Node/pnpm (web build + harness), a cached Chromium, and a pinned DuckDB so
   # the SQL-console spec runs. Traces/report uploaded on failure.
   # ---------------------------------------------------------------------------

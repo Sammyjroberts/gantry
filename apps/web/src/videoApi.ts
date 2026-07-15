@@ -1,5 +1,5 @@
 /**
- * Video transport against the Edge server's /video endpoints (same origin as the
+ * Video transport against the Bench server's /video endpoints (same origin as the
  * Connect RPC + /models routes — see config.resolveBaseUrl). Plain HTTP:
  *
  *   POST /video/chunks?camera=&start_ns=&duration_ms=   body=bytes → 201 {"id"}

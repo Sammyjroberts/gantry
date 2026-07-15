@@ -1,11 +1,11 @@
-//! End-to-end test against a real Edge binary. `#[ignore]` by default (it builds Go and starts a
+//! End-to-end test against a real Bench binary. `#[ignore]` by default (it builds Go and starts a
 //! server); run explicitly:
 //!
 //! ```text
 //! cargo test -p gantry-serial-agent --test e2e_edge -- --ignored --nocapture
 //! ```
 //!
-//! It builds `apps/edge`, starts it on a random port with a temp data dir, replays a synthesized
+//! It builds `apps/bench`, starts it on a random port with a temp data dir, replays a synthesized
 //! spool file through the agent's real `--from-file` pipeline against the live ingest endpoint,
 //! then hits `LiveService/ListChannels` over plain HTTP/1.1 JSON to assert the channels + packets
 //! arrived.
@@ -16,9 +16,9 @@ use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::time::{Duration, Instant};
 
+use gantry_edge_http::HttpTransport;
 use gantry_serial_agent::pipeline::{self, Pace, PipelineConfig};
 use gantry_serial_agent::translate::{Config, TimeAnchor, Translator};
-use gantry_transport_http::HttpTransport;
 use gantry_wire::{
     encode_device_info, encode_packet_def, encode_samples_header, encode_time_sync, Decoder,
     FieldDef, Kind,
@@ -26,7 +26,7 @@ use gantry_wire::{
 
 const HZ: u64 = 1_000_000;
 
-/// Kills the Edge child on drop so a panicking assertion never leaks the process.
+/// Kills the Bench child on drop so a panicking assertion never leaks the process.
 struct EdgeGuard(Child);
 impl Drop for EdgeGuard {
     fn drop(&mut self) {
@@ -89,22 +89,22 @@ fn build_stream() -> Vec<u8> {
 fn e2e_replay_to_real_edge() {
     let root = repo_root();
     let tmp = tempfile::tempdir().unwrap();
-    let edge_bin = tmp.path().join("edge.exe");
+    let bench_bin = tmp.path().join("bench.exe");
 
-    // 1. Build the Edge binary.
+    // 1. Build the Bench binary.
     let status = Command::new("go")
         .args(["build", "-o"])
-        .arg(&edge_bin)
-        .arg("./apps/edge/cmd/edge")
+        .arg(&bench_bin)
+        .arg("./apps/bench/cmd/bench")
         .current_dir(&root)
         .status()
         .expect("run `go build` (is Go on PATH?)");
-    assert!(status.success(), "go build edge failed");
+    assert!(status.success(), "go build bench failed");
 
-    // 2. Start Edge on a random port with a temp data dir.
+    // 2. Start Bench on a random port with a temp data dir.
     let port = free_port();
     let data_dir = tmp.path().join("data");
-    let child = Command::new(&edge_bin)
+    let child = Command::new(&bench_bin)
         .arg("--port")
         .arg(port.to_string())
         .arg("--data-dir")

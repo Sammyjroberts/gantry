@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "bench_lib",
+    srcs = [
+        "main.go",
+        "migrate.go",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/apps/bench/cmd/bench",
+    visibility = ["//visibility:private"],
+    deps = ["//apps/bench/internal/server"],
+)
+
+go_binary(
+    name = "bench",
+    embed = [":bench_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "bench_test",
+    srcs = ["migrate_test.go"],
+    embed = [":bench_lib"],
+)

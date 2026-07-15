@@ -1,0 +1,13 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "ui",
+    srcs = ["embed.go"],
+    # `just embed-ui` replaces dist/ with content-hashed web build outputs on
+    # every release, so the embed set must be a glob — an explicit list goes
+    # stale the moment the bundle hash changes. `# keep` stops gazelle from
+    # rewriting it back to a literal list.
+    embedsrcs = glob(["dist/**"]),  # keep
+    importpath = "github.com/Sammyjroberts/gantry/apps/bench/internal/ui",
+    visibility = ["//apps/bench:__subpackages__"],
+)

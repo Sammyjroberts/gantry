@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "benchdb",
+    srcs = ["benchdb.go"],
+    embedsrcs = [
+        "migrations/0001_experiments.sql",
+        "migrations/0002_segments.sql",
+        "migrations/0003_video.sql",
+        "migrations/0004_hardware.sql",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/core/go/benchdb",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_pressly_goose_v3//:goose",
+        "@org_modernc_sqlite//:sqlite",
+    ],
+)
+
+go_test(
+    name = "benchdb_test",
+    srcs = ["benchdb_test.go"],
+    deps = [":benchdb"],
+)

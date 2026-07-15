@@ -12,13 +12,13 @@ importers:
     dependencies:
       '@gantry/api-client':
         specifier: workspace:*
-        version: link:../../libs/ts/api-client
+        version: link:../../core/ts/api-client
       '@gantry/timeseries':
         specifier: workspace:*
-        version: link:../../libs/ts/timeseries
+        version: link:../../core/ts/timeseries
       '@gantry/ui':
         specifier: workspace:*
-        version: link:../../libs/ts/ui
+        version: link:../../core/ts/ui
       '@react-three/drei':
         specifier: ^9.114.0
         version: 9.122.0(@react-three/fiber@8.18.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.169.0))(@types/react@18.3.31)(@types/three@0.169.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.169.0)(use-sync-external-store@1.6.0(react@18.3.1))
@@ -72,7 +72,7 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)(jsdom@25.0.1)
 
-  libs/ts/api-client:
+  core/ts/api-client:
     dependencies:
       '@bufbuild/protobuf':
         specifier: ^2.12.1
@@ -91,7 +91,7 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)(jsdom@25.0.1)
 
-  libs/ts/timeseries:
+  core/ts/timeseries:
     devDependencies:
       typescript:
         specifier: ^5.7.2
@@ -100,7 +100,7 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)(jsdom@25.0.1)
 
-  libs/ts/ui:
+  core/ts/ui:
     devDependencies:
       typescript:
         specifier: ^5.7.2

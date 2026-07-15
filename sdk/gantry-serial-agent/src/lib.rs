@@ -2,18 +2,18 @@
 //!
 //! Turns a `docs/WIRE.md` device byte stream into `gantry.v1` ingest calls. This is the bridge
 //! for "plug the laptop into the robot": firmware speaks the wire format over USB-CDC (a COM port
-//! on Windows), and this agent forwards it to a Gantry Edge (or Backend) endpoint over
+//! on Windows), and this agent forwards it to a Gantry Bench (or Cloud) endpoint over
 //! Connect/HTTP. The same pipeline replays a spool file — a recording *is* a paused stream.
 //!
 //! ```text
-//! COM7 / flight.gtl ──▶ gantry_wire::Decoder ──▶ Translator ──▶ Transport ──▶ Edge @ :4780
+//! COM7 / flight.gtl ──▶ gantry_wire::Decoder ──▶ Translator ──▶ Transport ──▶ Bench @ :4780
 //!     (source)              (records)            (frames/batches)   (HTTP)
 //! ```
 //!
 //! ## Modules
 //!
 //! * [`translate`] — the transport-agnostic core: [`Translator`] maps records to
-//!   `RegisterChannels`/`PublishBatch`. Unit-testable with a mock [`gantry_connect::Transport`].
+//!   `RegisterChannels`/`PublishBatch`. Unit-testable with a mock [`gantry_edge::Transport`].
 //! * [`timesync`] — [`TimeMapper`], device ticks → epoch nanoseconds.
 //! * [`source`] — serial / file byte sources and the raw-spool tee.
 //! * [`pipeline`] — the single-threaded pump wiring a source through the decoder to the translator.

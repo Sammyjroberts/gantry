@@ -1,11 +1,11 @@
-# Gantry Connect Rust SDK — its own cargo workspace root.
+# Gantry Edge Rust SDK — its own cargo workspace root.
 # Native `cargo` must always work standalone (Bazel is additive per ARCHITECTURE.md).
 [workspace]
 resolver = "2"
 members = [
-    "gantry-connect-proto",
-    "gantry-connect",
-    "gantry-transport-http",
+    "gantry-edge-proto",
+    "gantry-edge",
+    "gantry-edge-http",
     "gantry-wire",
     "gantry-tlm",
     "gantry-tlm-derive",

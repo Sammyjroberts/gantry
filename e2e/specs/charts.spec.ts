@@ -2,7 +2,7 @@ import { test, expect } from "../harness/fixtures";
 import { selectChannel, framesPerSec } from "./_helpers";
 
 // Spec (a) — Charts live: select channels, assert canvas charts render and the
-// frames/sec status becomes nonzero (live stream flowing from the real Edge).
+// frames/sec status becomes nonzero (live stream flowing from the real Bench).
 test("charts render live and frames/sec climbs", async ({ console: page }) => {
   await selectChannel(page, "pitch_deg");
   await selectChannel(page, "roll_deg");

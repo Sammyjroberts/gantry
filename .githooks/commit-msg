@@ -13,7 +13,7 @@ msg_file="$1"
 header=$(grep -v '^#' "$msg_file" | sed -n '/./{p;q;}' | tr -d '\r')
 
 types='feat|fix|docs|refactor|perf|test|build|ci|chore'
-known_scopes='edge backend web sdk proto libs-go libs-ts deploy bazel docs skills'
+known_scopes='bench cloud web sdk proto core-go core-ts deploy bazel docs skills'
 
 # --- Exemptions: never block these -----------------------------------------
 case "$header" in
@@ -30,7 +30,7 @@ fail() {
   echo "  types: $types"
   echo "  valid examples:"
   echo "    feat(sdk): add spool sink with drop-oldest ring buffer"
-  echo "    fix(edge): flush stream-open response before first frame"
+  echo "    fix(bench): flush stream-open response before first frame"
   echo
   echo "See .claude/skills/git/SKILL.md"
   exit 1
