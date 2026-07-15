@@ -4,6 +4,7 @@ import {
   createIngestClient,
   createExperimentClient,
   createQueryClient,
+  createHardwareClient,
 } from "./clients";
 import {
   ValueKind,
@@ -11,8 +12,10 @@ import {
   LiveService,
   ExperimentService,
   QueryService,
+  HardwareService,
   StartExperimentRequestSchema,
   QueryRangeRequestSchema,
+  UpsertHardwareRequestSchema,
 } from "./index";
 
 describe("api-client factories", () => {
@@ -42,13 +45,23 @@ describe("api-client factories", () => {
     expect(typeof client.queryRange).toBe("function");
   });
 
+  it("creates a HardwareService client exposing the RPC methods", () => {
+    const client = createHardwareClient("http://localhost:4780");
+    expect(typeof client.listHardware).toBe("function");
+    expect(typeof client.getHardware).toBe("function");
+    expect(typeof client.upsertHardware).toBe("function");
+    expect(typeof client.deleteHardware).toBe("function");
+  });
+
   it("re-exports generated schemas and enums", () => {
     expect(ValueKind.F64).toBe(1);
     expect(SubscribeRequestSchema.typeName).toBe("gantry.v1.SubscribeRequest");
     expect(LiveService.typeName).toBe("gantry.v1.LiveService");
     expect(ExperimentService.typeName).toBe("gantry.v1.ExperimentService");
     expect(QueryService.typeName).toBe("gantry.v1.QueryService");
+    expect(HardwareService.typeName).toBe("gantry.v1.HardwareService");
     expect(StartExperimentRequestSchema.typeName).toBe("gantry.v1.StartExperimentRequest");
     expect(QueryRangeRequestSchema.typeName).toBe("gantry.v1.QueryRangeRequest");
+    expect(UpsertHardwareRequestSchema.typeName).toBe("gantry.v1.UpsertHardwareRequest");
   });
 });

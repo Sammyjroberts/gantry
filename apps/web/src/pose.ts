@@ -215,15 +215,16 @@ export function valueAtOrBefore(
   return null;
 }
 
-// ---- persistence ----------------------------------------------------------
+// ---- merge -----------------------------------------------------------------
 
-const STORAGE_PREFIX = "gantry-pose-";
-
-function storageKey(device: string): string {
-  return `${STORAGE_PREFIX}${device || "_"}`;
-}
-
-/** Merge a persisted (possibly partial/old) blob onto fresh defaults. */
+/**
+ * Merge a persisted (possibly partial/old) bindings blob onto fresh defaults.
+ * The bindings themselves live server-side now (HardwareService viz_config_json,
+ * see hardware.ts) — this merge is the tolerant decoder for whatever shape the
+ * server (or a one-time localStorage migration) hands back. There is NO
+ * localStorage read/write for bindings in this module: durable viz state roams
+ * with the device, never the browser.
+ */
 export function mergeBindings(raw: unknown): PoseBindings {
   const base = defaultBindings();
   if (!raw || typeof raw !== "object") return base;
@@ -260,23 +261,4 @@ export function mergeBindings(raw: unknown): PoseBindings {
     joints,
     dims: { ...base.dims, ...(r.dims ?? {}) },
   };
-}
-
-export function loadBindings(device: string): PoseBindings {
-  if (typeof localStorage === "undefined") return defaultBindings();
-  try {
-    const raw = localStorage.getItem(storageKey(device));
-    return raw ? mergeBindings(JSON.parse(raw)) : defaultBindings();
-  } catch {
-    return defaultBindings();
-  }
-}
-
-export function saveBindings(device: string, b: PoseBindings): void {
-  if (typeof localStorage === "undefined") return;
-  try {
-    localStorage.setItem(storageKey(device), JSON.stringify(b));
-  } catch {
-    /* quota / disabled storage — non-fatal */
-  }
 }

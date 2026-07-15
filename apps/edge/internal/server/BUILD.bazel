@@ -23,6 +23,7 @@ go_library(
         "//libs/go/duckdb",
         "//libs/go/edgedb",
         "//libs/go/experiments",
+        "//libs/go/hardware",
         "//libs/go/ingest",
         "//libs/go/mcp",
         "//libs/go/models",
@@ -42,6 +43,7 @@ go_test(
     srcs = [
         "e2e_test.go",
         "export_e2e_test.go",
+        "hardware_e2e_test.go",
         "mcp_e2e_test.go",
         "mcp_experiments_e2e_test.go",
         "models_e2e_test.go",

@@ -17,6 +17,7 @@ import (
 	"github.com/Sammyjroberts/gantry/libs/go/blob"
 	"github.com/Sammyjroberts/gantry/libs/go/edgedb"
 	"github.com/Sammyjroberts/gantry/libs/go/experiments"
+	"github.com/Sammyjroberts/gantry/libs/go/hardware"
 	"github.com/Sammyjroberts/gantry/libs/go/ingest"
 	"github.com/Sammyjroberts/gantry/libs/go/mcp"
 	"github.com/Sammyjroberts/gantry/libs/go/models"
@@ -61,6 +62,10 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	engine := ingest.New(bus, reg)
 	expSvc := experiments.NewService(db)
 	expReplayer := experiments.NewReplayer(bus)
+	// Hardware: the operator-authored identity layer over telemetry devices. Its
+	// unconfigured-device set comes from the channel registry (devices seen live
+	// but not yet configured), injected via the narrow DeviceLister interface.
+	hwSvc := hardware.NewService(db, registryDeviceLister{reg})
 
 	// Durable tier: blob store + Parquet segment writer + optional DuckDB SQL.
 	// Background work (segment flusher, video janitor) runs on its own context
@@ -99,10 +104,12 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	livePath, liveHandler := gantryv1connect.NewLiveServiceHandler(&liveService{bus: bus, reg: reg})
 	expPath, expHandler := gantryv1connect.NewExperimentServiceHandler(experiments.NewHandler(expSvc))
 	queryPath, queryHandler := gantryv1connect.NewQueryServiceHandler(&queryService{bus: bus, stater: stater, segments: p.SegmentReader()})
+	hwPath, hwHandler := gantryv1connect.NewHardwareServiceHandler(hardware.NewHandler(hwSvc))
 	mux.Handle(ingestPath, ingestHandler)
 	mux.Handle(livePath, liveHandler)
 	mux.Handle(expPath, expHandler)
 	mux.Handle(queryPath, queryHandler)
+	mux.Handle(hwPath, hwHandler)
 
 	// Chunked video catalog + per-device model files (plain HTTP; see the
 	// register funcs for the URL surface). SQL over the segment store when a
@@ -140,6 +147,22 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	handler = h2c.NewHandler(handler, h2s)
 
 	return &App{bus: bus, engine: engine, db: db, persistence: p, cancelBg: cancelBg, handler: handler}, nil
+}
+
+// registryDeviceLister adapts the channel registry to hardware.DeviceLister:
+// the distinct device_ids the registry has seen in telemetry. Kept here (not in
+// the hardware package) so hardware stays free of a registry dependency.
+type registryDeviceLister struct{ reg *registry.Registry }
+
+func (r registryDeviceLister) SeenDeviceIDs() []string {
+	devs := r.reg.List("")
+	ids := make([]string, 0, len(devs))
+	for _, d := range devs {
+		if d.DeviceId != "" {
+			ids = append(ids, d.DeviceId)
+		}
+	}
+	return ids
 }
 
 // Handler returns the root HTTP handler (used by tests).

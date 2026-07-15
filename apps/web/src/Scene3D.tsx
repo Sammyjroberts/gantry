@@ -30,17 +30,17 @@ import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   boundChannelKeys,
-  loadBindings,
+  defaultBindings,
   resolveAngle,
   resolveJoint,
   resolveOffset,
   resolveModelSource,
-  saveBindings,
   type ModelKind,
   type PoseBindings,
   type PrimitiveDims,
   type Sampler,
 } from "./pose";
+import { encodeVizConfig } from "./hardware";
 import { movableJoints, parseUrdf, STARTER_URDF, type UrdfJoint } from "./urdf";
 import { listModels, loadModelText, modelUrl, saveModelText } from "./models";
 import {
@@ -65,6 +65,14 @@ export interface Scene3DProps {
   replaying: boolean;
   /** Report the channel keys the current bindings need, so App can subscribe. */
   onBoundChannelsChange: (keys: string[]) => void;
+  /**
+   * Load a device's pose bindings from the server (HardwareService
+   * viz_config_json), migrating any legacy localStorage copy once. Durable viz
+   * state lives server-side now — never browser-local.
+   */
+  loadVizConfig: (device: string) => Promise<PoseBindings>;
+  /** Persist a device's pose bindings to the server (debounced by the caller). */
+  saveVizConfig: (device: string, bindings: PoseBindings) => Promise<void>;
   onClose: () => void;
 }
 
@@ -214,10 +222,21 @@ function SceneContents({
 }
 
 export default function Scene3D(props: Scene3DProps) {
-  const { baseUrl, devices, channels, sampleRef, replaying, onBoundChannelsChange, onClose } = props;
+  const {
+    baseUrl,
+    devices,
+    channels,
+    sampleRef,
+    replaying,
+    onBoundChannelsChange,
+    loadVizConfig,
+    saveVizConfig,
+    onClose,
+  } = props;
 
   const [device, setDevice] = useState<string>(devices[0] ?? "robot");
-  const [bindings, setBindings] = useState<PoseBindings>(() => loadBindings(devices[0] ?? "robot"));
+  // Bindings start at defaults and are loaded from the server per-device below.
+  const [bindings, setBindings] = useState<PoseBindings>(() => defaultBindings());
   const [renderMode, setRenderMode] = useState<RenderMode>("primitive");
   const [urdfText, setUrdfText] = useState<string>(STARTER_URDF);
   const [meshObject, setMeshObject] = useState<THREE.Object3D | null>(null);
@@ -266,9 +285,8 @@ export default function Scene3D(props: Scene3DProps) {
 
   const parseError = renderMode === "urdf" ? parse.error ?? buildError ?? null : null;
 
-  // ---- per-device init: load bindings + resolve the model source ----------
+  // ---- per-device init: resolve the model source --------------------------
   useEffect(() => {
-    setBindings(loadBindings(device));
     setSaveState("idle");
     setSaveError(null);
     const ac = new AbortController();
@@ -337,11 +355,44 @@ export default function Scene3D(props: Scene3DProps) {
     };
   }, [renderMode, device, baseUrl]);
 
-  // ---- persist bindings + report bound channels up ------------------------
+  // Tracks which device the current `bindings` were loaded for, and the last
+  // viz JSON we loaded/saved — so the debounced save fires only on a genuine
+  // change and never echoes the value we just loaded (which would be a
+  // redundant write, or worse, clobber during a device switch).
+  const loadedDeviceRef = useRef<string | null>(null);
+  const lastVizJsonRef = useRef<string>("");
+
+  // ---- load bindings from the server on device change ---------------------
   useEffect(() => {
-    saveBindings(device, bindings);
+    let cancelled = false;
+    loadedDeviceRef.current = null;
+    void loadVizConfig(device).then((b) => {
+      if (cancelled) return;
+      setBindings(b);
+      loadedDeviceRef.current = device;
+      lastVizJsonRef.current = encodeVizConfig(b);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [device, loadVizConfig]);
+
+  // Report bound channels up immediately (no debounce) so App's subscription
+  // tracks edits without waiting on the save.
+  useEffect(() => {
     onBoundChannelsChange(boundChannelKeys(bindings));
-  }, [device, bindings, onBoundChannelsChange]);
+  }, [bindings, onBoundChannelsChange]);
+
+  // ---- debounced (~1s) server save on change ------------------------------
+  const debouncedBindings = useDebounced(bindings, 1000);
+  useEffect(() => {
+    // Only save bindings that belong to the currently-loaded device.
+    if (loadedDeviceRef.current !== device) return;
+    const json = encodeVizConfig(debouncedBindings);
+    if (json === lastVizJsonRef.current) return; // no change vs loaded/last-saved
+    lastVizJsonRef.current = json;
+    void saveVizConfig(device, debouncedBindings);
+  }, [debouncedBindings, device, saveVizConfig]);
 
   // Clear reported channels on unmount so App drops the extra subscriptions.
   useEffect(() => () => onBoundChannelsChange([]), [onBoundChannelsChange]);

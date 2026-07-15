@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   resolveAngle,
   resolveOffset,
@@ -8,8 +8,6 @@ import {
   boundChannelKeys,
   defaultBindings,
   mergeBindings,
-  loadBindings,
-  saveBindings,
   deg2rad,
   type Sampler,
 } from "./pose";
@@ -137,19 +135,7 @@ describe("valueAtOrBefore (replay cursor lookup)", () => {
   });
 });
 
-describe("bindings persistence + merge", () => {
-  beforeEach(() => localStorage.clear());
-
-  it("round-trips through localStorage per device", () => {
-    const b = defaultBindings();
-    b.yaw = { channelKey: "imuyaw", unit: "rad", sign: -1 };
-    saveBindings("mr-wobbles", b);
-    const loaded = loadBindings("mr-wobbles");
-    expect(loaded.yaw).toEqual({ channelKey: "imuyaw", unit: "rad", sign: -1 });
-    // A different device is independent.
-    expect(loadBindings("other").yaw.channelKey).toBeNull();
-  });
-
+describe("bindings merge", () => {
   it("merges a partial/legacy blob onto fresh defaults", () => {
     const merged = mergeBindings({ pitch: { channelKey: "a", sign: -1 }, joints: { j: { mode: "manual", manual: 1 } } });
     expect(merged.pitch).toEqual({ channelKey: "a", unit: "deg", sign: -1 });

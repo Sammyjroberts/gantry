@@ -475,12 +475,221 @@ body {
 .device-group {
   margin-bottom: 6px;
 }
-.device-name {
+.device-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   padding: 6px 12px 2px;
+  border-top: 1px solid var(--border);
+}
+.device-name {
   color: var(--accent);
   font-size: 11px;
   letter-spacing: 0.06em;
-  border-top: 1px solid var(--border);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.device-defaults {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.device-default-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  cursor: pointer;
+}
+.device-default-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ---- Hardware panel (device identity page) ---- */
+.hw-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: clamp(320px, 32vw, 460px);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.45);
+  overflow-y: auto;
+}
+.hw-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+  position: sticky;
+  top: 0;
+}
+.hw-title {
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+.hw-close {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px 7px;
+}
+.hw-close:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.hw-error {
+  color: var(--danger);
+  font-size: 11px;
+  padding: 6px 14px;
+}
+.hw-section {
+  padding: 8px 14px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.hw-section-title {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.hw-count {
+  color: var(--accent);
+  margin-left: 4px;
+}
+.hw-empty {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: italic;
+  padding: 4px 0;
+}
+.hw-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.hw-row {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: var(--panel-2);
+}
+.hw-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hw-row-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.hw-name {
+  color: var(--text);
+  font-size: 13px;
+}
+.hw-devid {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+.hw-devid--strong {
+  color: var(--text);
+  font-size: 12px;
+}
+.hw-desc {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+.hw-row-actions {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.hw-btn {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.hw-btn:hover {
+  border-color: var(--accent);
+}
+.hw-btn--primary {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.hw-btn--danger {
+  color: var(--danger);
+}
+.hw-btn--danger:hover {
+  border-color: var(--danger);
+}
+.hw-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.hw-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hw-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hw-field-label {
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.hw-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 4px 6px;
+}
+.hw-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.hw-textarea {
+  resize: vertical;
+  min-height: 44px;
+}
+.hw-edit-actions {
+  display: flex;
+  gap: 6px;
 }
 /* packet groups (device → packet → params) */
 .packet-group {

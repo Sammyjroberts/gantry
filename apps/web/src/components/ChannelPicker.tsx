@@ -13,6 +13,12 @@ export interface ChannelPickerProps {
   selected: Set<string>;
   onToggle: (id: ChannelId) => void;
   error: string | null;
+  /** Resolve a device id to its display name (configured name, else the id). */
+  deviceLabel?: (deviceId: string) => string;
+  /** Save the current selection as this device's panel default (server-side). */
+  onSaveDefaults?: (deviceId: string) => void;
+  /** Replace the selection with this device's saved panel default. */
+  onLoadDefaults?: (deviceId: string) => void;
 }
 
 /**
@@ -20,7 +26,15 @@ export interface ChannelPickerProps {
  * (empty packet) live under an "ad hoc" bucket. Identity is (packet, name), so
  * imu.temp and power.temp are distinct rows with independent selection.
  */
-export function ChannelPicker({ devices, selected, onToggle, error }: ChannelPickerProps) {
+export function ChannelPicker({
+  devices,
+  selected,
+  onToggle,
+  error,
+  deviceLabel,
+  onSaveDefaults,
+  onLoadDefaults,
+}: ChannelPickerProps) {
   // Collapsed packet groups, keyed by `${deviceId}${packet}`.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggleCollapse = (key: string) =>
@@ -40,7 +54,39 @@ export function ChannelPicker({ devices, selected, onToggle, error }: ChannelPic
       )}
       {devices.map((dev) => (
         <div className="device-group" key={dev.deviceId}>
-          <div className="device-name">{dev.deviceId || "(unnamed device)"}</div>
+          <div className="device-header">
+            <span className="device-name" title={dev.deviceId}>
+              {dev.deviceId
+                ? deviceLabel
+                  ? deviceLabel(dev.deviceId)
+                  : dev.deviceId
+                : "(unnamed device)"}
+            </span>
+            {dev.deviceId && (onSaveDefaults || onLoadDefaults) && (
+              <span className="device-defaults">
+                {onLoadDefaults && (
+                  <button
+                    type="button"
+                    className="device-default-btn"
+                    title="load this device's saved default channel selection"
+                    onClick={() => onLoadDefaults(dev.deviceId)}
+                  >
+                    load
+                  </button>
+                )}
+                {onSaveDefaults && (
+                  <button
+                    type="button"
+                    className="device-default-btn"
+                    title="save the current selection as this device's default"
+                    onClick={() => onSaveDefaults(dev.deviceId)}
+                  >
+                    save default
+                  </button>
+                )}
+              </span>
+            )}
+          </div>
           {groupByPacket(dev.channels).map((group) => {
             const groupKey = `${dev.deviceId}${group.packet}`;
             const isCollapsed = collapsed.has(groupKey);

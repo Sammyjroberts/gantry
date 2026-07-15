@@ -7,6 +7,7 @@ go_library(
         "migrations/0001_experiments.sql",
         "migrations/0003_video.sql",
         "migrations/0002_segments.sql",
+        "migrations/0004_hardware.sql",
     ],
     importpath = "github.com/Sammyjroberts/gantry/libs/go/edgedb",
     visibility = ["//visibility:public"],

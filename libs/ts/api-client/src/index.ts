@@ -5,6 +5,11 @@ export * from "./gen/gantry/v1/live_pb";
 export * from "./gen/gantry/v1/ingest_pb";
 export * from "./gen/gantry/v1/experiment_pb";
 export * from "./gen/gantry/v1/query_pb";
+export * from "./gen/gantry/v1/hardware_pb";
 
 // Typed client factories over the connect-es v2 stack.
 export * from "./clients";
+
+// Connect error plumbing, re-exported so console code can classify RPC failures
+// (e.g. NotFound vs. transient) without a direct @connectrpc/connect dependency.
+export { Code, ConnectError } from "@connectrpc/connect";

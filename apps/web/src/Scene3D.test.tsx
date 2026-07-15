@@ -15,7 +15,11 @@
  */
 import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
-import type { Sampler } from "./pose";
+import { defaultBindings, type PoseBindings, type Sampler } from "./pose";
+
+// Stub the server-homed viz config: load returns fresh defaults, save is a noop.
+const loadVizConfig = vi.fn(async (): Promise<PoseBindings> => defaultBindings());
+const saveVizConfig = vi.fn(async (): Promise<void> => {});
 
 vi.mock("@react-three/fiber", () => ({
   Canvas: ({ children }: { children: React.ReactNode }) => (
@@ -57,6 +61,8 @@ describe("Scene3D (lazy chunk smoke test)", () => {
         sampleRef={sampleRef}
         replaying={false}
         onBoundChannelsChange={() => {}}
+        loadVizConfig={loadVizConfig}
+        saveVizConfig={saveVizConfig}
         onClose={() => {}}
       />,
     );
@@ -85,6 +91,8 @@ describe("Scene3D (lazy chunk smoke test)", () => {
         sampleRef={sampleRef}
         replaying={false}
         onBoundChannelsChange={onBound}
+        loadVizConfig={loadVizConfig}
+        saveVizConfig={saveVizConfig}
         onClose={() => {}}
       />,
     );

@@ -4,6 +4,7 @@ go_library(
     name = "gantry",
     srcs = [
         "experiment.pb.go",
+        "hardware.pb.go",
         "ingest.pb.go",
         "live.pb.go",
         "query.pb.go",

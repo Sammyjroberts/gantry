@@ -7,6 +7,7 @@ import { LiveService } from "./gen/gantry/v1/live_pb";
 import { IngestService } from "./gen/gantry/v1/ingest_pb";
 import { ExperimentService } from "./gen/gantry/v1/experiment_pb";
 import { QueryService } from "./gen/gantry/v1/query_pb";
+import { HardwareService } from "./gen/gantry/v1/hardware_pb";
 
 /** Typed client for the live telemetry (streaming) service. */
 export type LiveClient = Client<typeof LiveService>;
@@ -16,6 +17,8 @@ export type IngestClient = Client<typeof IngestService>;
 export type ExperimentClient = Client<typeof ExperimentService>;
 /** Typed client for the historical range-query service. */
 export type QueryClient = Client<typeof QueryService>;
+/** Typed client for the hardware (device identity + config) service. */
+export type HardwareClient = Client<typeof HardwareService>;
 
 /**
  * Extra transport options, minus `baseUrl` which is passed positionally.
@@ -71,4 +74,19 @@ export function createQueryClient(
   options: ClientOptions = {},
 ): QueryClient {
   return createClient(QueryService, createConnectTransport({ baseUrl, ...options }));
+}
+
+/**
+ * Create a typed HardwareService client bound to `baseUrl`.
+ *
+ * Same origin/base contract as {@link createLiveClient}: Connect appends the
+ * `/gantry.v1.HardwareService/...` RPC path. Serves the console's hardware page
+ * (device identity + display names) and the server-side homes for the 3D
+ * visualization config and per-device panel defaults.
+ */
+export function createHardwareClient(
+  baseUrl: string,
+  options: ClientOptions = {},
+): HardwareClient {
+  return createClient(HardwareService, createConnectTransport({ baseUrl, ...options }));
 }

@@ -15,7 +15,9 @@ import {
 } from "./config";
 import { useLiveStream } from "./useLiveStream";
 import { useExperiments } from "./useExperiments";
+import { useHardware } from "./useHardware";
 import { useHistory } from "./useHistory";
+import { HardwarePanel } from "./HardwarePanel";
 import { ChannelPicker } from "./components/ChannelPicker";
 import { StatusBar } from "./components/StatusBar";
 import { Chart } from "./components/Chart";
@@ -150,6 +152,7 @@ export function App() {
   const [show3D, setShow3D] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const [showSql, setShowSql] = useState(false);
+  const [showHardware, setShowHardware] = useState(false);
   const [poseChannelKeys, setPoseChannelKeys] = useState<string[]>([]);
   // A fresh sampler is installed each render (below); Scene3D reads it in its
   // frame loop so the robot updates without any per-frame React render.
@@ -232,6 +235,11 @@ export function App() {
   });
 
   const exp = useExperiments({ baseUrl, deviceId: "", pollMs: 5000 });
+  // Hardware identity layer: display names + the server homes for the 3D viz
+  // config and per-device panel defaults. Display names surface wherever a raw
+  // device id shows today (sidebar headers, chart labels) with id fallback.
+  const hw = useHardware({ baseUrl });
+  const hwDisplayName = hw.displayName;
 
   // Chart render tick (150ms). Halted while paused so the live view freezes in
   // place — but replay drives its own sweep, so keep ticking whenever a replay
@@ -452,6 +460,13 @@ export function App() {
             ▤ sql
           </button>
           <button
+            className={`ctl-btn ${showHardware ? "is-active" : ""}`}
+            onClick={() => setShowHardware((v) => !v)}
+            title="toggle the hardware page (device names + config)"
+          >
+            ⬡ hardware
+          </button>
+          <button
             className={`ctl-btn ${paused ? "is-paused" : ""}`}
             onClick={() => setPaused((p) => !p)}
           >
@@ -515,6 +530,9 @@ export function App() {
           selected={selected}
           onToggle={toggle}
           error={listError}
+          deviceLabel={hwDisplayName}
+          onSaveDefaults={(deviceId) => void hw.savePanelDefaults(deviceId, [...selected])}
+          onLoadDefaults={(deviceId) => setSelected(new Set(hw.panelDefaults(deviceId)))}
         />
 
         <main className="charts">
@@ -549,7 +567,9 @@ export function App() {
                 <div className="chart-header">
                   <span className="chart-title" style={{ color }}>
                     {multiDevice && device && (
-                      <span className="chart-device">{device}</span>
+                      <span className="chart-device" title={device}>
+                        {hwDisplayName(device)}
+                      </span>
                     )}
                     {title}
                     {combined.hasEnvelope && (
@@ -616,6 +636,8 @@ export function App() {
                 sampleRef={sampleRef}
                 replaying={!!replay}
                 onBoundChannelsChange={setPoseChannelKeys}
+                loadVizConfig={hw.loadVizConfig}
+                saveVizConfig={hw.saveVizConfig}
                 onClose={() => setShow3D(false)}
               />
             </Suspense>
@@ -649,6 +671,17 @@ export function App() {
         <Suspense fallback={<div className="scene3d-loading">loading SQL module…</div>}>
           <SqlConsole baseUrl={baseUrl} onClose={() => setShowSql(false)} />
         </Suspense>
+      )}
+
+      {showHardware && (
+        <HardwarePanel
+          hardware={hw.hardware}
+          unconfigured={hw.unconfigured}
+          error={hw.error}
+          onUpsert={hw.upsert}
+          onRemove={hw.remove}
+          onClose={() => setShowHardware(false)}
+        />
       )}
 
       <StatusBar
