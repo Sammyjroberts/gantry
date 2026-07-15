@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package gantry.v1;
+
+// Workspaces: named, persistent bench layouts — the panel grid (charts, state
+// strips, readouts, 3D, cameras, SQL) plus each panel's configuration. Stored
+// server-side (SQLite on Bench, Postgres on Cloud) and synced; exportable as a
+// versioned JSON document for sharing.
+service WorkspaceService {
+  rpc ListWorkspaces(ListWorkspacesRequest) returns (ListWorkspacesResponse);
+  rpc GetWorkspace(GetWorkspaceRequest) returns (GetWorkspaceResponse);
+  // Create (empty id) or update (existing id).
+  rpc UpsertWorkspace(UpsertWorkspaceRequest) returns (UpsertWorkspaceResponse);
+  rpc DeleteWorkspace(DeleteWorkspaceRequest) returns (DeleteWorkspaceResponse);
+}
+
+message Workspace {
+  string id = 1;
+  string name = 2;
+  // Versioned layout document owned by the console: {"v":1,"panels":[{id,type,
+  // grid:{x,y,w,h},config:{...}}],...}. The server stores it opaquely (size-capped).
+  string layout_json = 3;
+  fixed64 created_ns = 4;
+  fixed64 updated_ns = 5;
+}
+
+message ListWorkspacesRequest {}
+
+message ListWorkspacesResponse {
+  // Name + timestamps only (layout_json omitted) — fetch a workspace to load it.
+  repeated Workspace workspaces = 1;
+}
+
+message GetWorkspaceRequest {
+  string id = 1;
+}
+
+message GetWorkspaceResponse {
+  Workspace workspace = 1;
+}
+
+message UpsertWorkspaceRequest {
+  Workspace workspace = 1;
+}
+
+message UpsertWorkspaceResponse {
+  Workspace workspace = 1;
+}
+
+message DeleteWorkspaceRequest {
+  string id = 1;
+}
+
+message DeleteWorkspaceResponse {}
