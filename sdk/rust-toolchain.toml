@@ -1,0 +1,6 @@
+# Pin the toolchain so rustfmt/clippy behavior is identical locally and in CI
+# (stable-channel skew broke `cargo fmt --check` in CI while local passed).
+[toolchain]
+channel = "1.93.0"
+components = ["clippy", "rustfmt"]
+targets = ["thumbv7em-none-eabi"]
