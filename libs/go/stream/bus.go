@@ -119,6 +119,11 @@ func (b *Bus) Publish(ctx context.Context, batch *gantryv1.FrameBatch) (uint64, 
 			DeviceId: batch.DeviceId,
 			Sequence: batch.Sequence,
 			Frames:   frames,
+			// Carry the ingest-stamped arrival time onto every per-channel
+			// sub-batch so the segment store persists received_ns end-to-end
+			// (telemetry.proto FrameBatch.received_ns). Without this the split
+			// would drop it and segments would record a zero arrival time.
+			ReceivedNs: batch.ReceivedNs,
 		}
 		data, err := proto.Marshal(sub)
 		if err != nil {

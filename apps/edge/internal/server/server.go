@@ -14,23 +14,28 @@ import (
 
 	"github.com/Sammyjroberts/gantry/apps/edge/internal/ui"
 	"github.com/Sammyjroberts/gantry/gen/go/gantry/v1/gantryv1connect"
+	"github.com/Sammyjroberts/gantry/libs/go/blob"
 	"github.com/Sammyjroberts/gantry/libs/go/edgedb"
 	"github.com/Sammyjroberts/gantry/libs/go/experiments"
 	"github.com/Sammyjroberts/gantry/libs/go/ingest"
 	"github.com/Sammyjroberts/gantry/libs/go/mcp"
+	"github.com/Sammyjroberts/gantry/libs/go/models"
 	"github.com/Sammyjroberts/gantry/libs/go/registry"
 	"github.com/Sammyjroberts/gantry/libs/go/stream"
+	"github.com/Sammyjroberts/gantry/libs/go/video"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
 
 // App is a fully wired Edge instance.
 type App struct {
-	bus     *stream.Bus
-	engine  *ingest.Engine
-	db      *sql.DB
-	handler http.Handler
-	srv     *http.Server
+	bus         *stream.Bus
+	engine      *ingest.Engine
+	db          *sql.DB
+	persistence *Persistence
+	cancelBg    context.CancelFunc
+	handler     http.Handler
+	srv         *http.Server
 }
 
 // New builds an Edge app with an embedded NATS server storing JetStream data in
@@ -57,6 +62,34 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	expSvc := experiments.NewService(db)
 	expReplayer := experiments.NewReplayer(bus)
 
+	// Durable tier: blob store + Parquet segment writer + optional DuckDB SQL.
+	// Background work (segment flusher, video janitor) runs on its own context
+	// so Shutdown can stop it before closing the bus/db underneath it.
+	bgCtx, cancelBg := context.WithCancel(context.Background())
+	p, err := NewPersistence(ctx, storeDir, db, bus)
+	if err != nil {
+		cancelBg()
+		_ = db.Close()
+		bus.Close()
+		return nil, err
+	}
+	if err := p.Start(bgCtx); err != nil {
+		cancelBg()
+		_ = db.Close()
+		bus.Close()
+		return nil, err
+	}
+	blobStore, err := blob.NewFS(filepath.Join(storeDir, "blobs"))
+	if err != nil {
+		cancelBg()
+		_ = db.Close()
+		bus.Close()
+		return nil, err
+	}
+	videoSvc := video.NewService(video.NewStore(db), blobStore)
+	videoSvc.StartJanitor(bgCtx, video.DefaultRetention, video.DefaultJanitorInterval)
+	modelsSvc := models.NewService(blobStore)
+
 	// Shared JetStream state reporter (last sequence + first/last timestamps),
 	// used by both the QueryService (range bounds + retention) and MCP.
 	stater := mcp.BusStreamStater(bus)
@@ -65,11 +98,18 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	ingestPath, ingestHandler := gantryv1connect.NewIngestServiceHandler(&ingestService{engine: engine})
 	livePath, liveHandler := gantryv1connect.NewLiveServiceHandler(&liveService{bus: bus, reg: reg})
 	expPath, expHandler := gantryv1connect.NewExperimentServiceHandler(experiments.NewHandler(expSvc))
-	queryPath, queryHandler := gantryv1connect.NewQueryServiceHandler(&queryService{bus: bus, stater: stater})
+	queryPath, queryHandler := gantryv1connect.NewQueryServiceHandler(&queryService{bus: bus, stater: stater, segments: p.SegmentReader()})
 	mux.Handle(ingestPath, ingestHandler)
 	mux.Handle(livePath, liveHandler)
 	mux.Handle(expPath, expHandler)
 	mux.Handle(queryPath, queryHandler)
+
+	// Chunked video catalog + per-device model files (plain HTTP; see the
+	// register funcs for the URL surface). SQL over the segment store when a
+	// DuckDB engine is present (503 with install hint otherwise).
+	RegisterVideo(mux, videoSvc)
+	RegisterModels(mux, modelsSvc)
+	mux.Handle(sqlRoute, NewSQLHandler(p.SQL))
 
 	// CSV export over plain HTTP (browser- and script-friendly): see
 	// proto/gantry/v1/experiment.proto. Streams the experiment's stream-replay
@@ -86,6 +126,7 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 		Replay:      bus,
 		Stream:      stater,
 		Experiments: expSvc,
+		SQL:         NewSQLRunner(p.SQL),
 		StartedAt:   time.Now(),
 	}))
 
@@ -98,7 +139,7 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	h2s := &http2.Server{}
 	handler = h2c.NewHandler(handler, h2s)
 
-	return &App{bus: bus, engine: engine, db: db, handler: handler}, nil
+	return &App{bus: bus, engine: engine, db: db, persistence: p, cancelBg: cancelBg, handler: handler}, nil
 }
 
 // Handler returns the root HTTP handler (used by tests).
@@ -121,6 +162,14 @@ func (a *App) Shutdown(ctx context.Context) error {
 	var err error
 	if a.srv != nil {
 		err = a.srv.Shutdown(ctx)
+	}
+	if a.persistence != nil {
+		if perr := a.persistence.Stop(ctx); perr != nil && err == nil {
+			err = perr
+		}
+	}
+	if a.cancelBg != nil {
+		a.cancelBg()
 	}
 	if a.db != nil {
 		if cerr := a.db.Close(); cerr != nil && err == nil {

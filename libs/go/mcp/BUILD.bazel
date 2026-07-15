@@ -9,6 +9,7 @@ go_library(
         "collect.go",
         "experiments.go",
         "mcp.go",
+        "sql.go",
         "tools.go",
     ],
     importpath = "github.com/Sammyjroberts/gantry/libs/go/mcp",
@@ -18,8 +19,8 @@ go_library(
         "//libs/go/query",
         "//libs/go/registry",
         "//libs/go/stream",
-        "@com_github_modelcontextprotocol_go_sdk//mcp:go_default_library",
-        "@com_github_nats_io_nats_go//jetstream:go_default_library",
+        "@com_github_modelcontextprotocol_go_sdk//mcp",
+        "@com_github_nats_io_nats_go//jetstream",
     ],
 )
 

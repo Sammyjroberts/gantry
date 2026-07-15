@@ -14,6 +14,12 @@ export default defineConfig({
         target: "http://localhost:4780",
         changeOrigin: true,
       },
+      // Model files for the 3D viewer/editor (GET list, GET/PUT files) are served
+      // by the Edge binary at the same origin in prod; proxy them in dev too.
+      "/models": {
+        target: "http://localhost:4780",
+        changeOrigin: true,
+      },
     },
   },
   build: {

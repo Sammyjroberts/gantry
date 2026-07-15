@@ -3,12 +3,16 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "edgedb",
     srcs = ["edgedb.go"],
-    embedsrcs = ["migrations/0001_experiments.sql"],
+    embedsrcs = [
+        "migrations/0001_experiments.sql",
+        "migrations/0003_video.sql",
+        "migrations/0002_segments.sql",
+    ],
     importpath = "github.com/Sammyjroberts/gantry/libs/go/edgedb",
     visibility = ["//visibility:public"],
     deps = [
-        "@com_github_pressly_goose_v3//:go_default_library",
-        "@org_modernc_sqlite//:go_default_library",
+        "@com_github_pressly_goose_v3//:goose",
+        "@org_modernc_sqlite//:sqlite",
     ],
 )
 

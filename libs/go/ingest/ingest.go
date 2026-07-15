@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	gantryv1 "github.com/Sammyjroberts/gantry/gen/go/gantry/v1"
 	"github.com/Sammyjroberts/gantry/libs/go/registry"
@@ -27,11 +28,13 @@ type Publisher interface {
 type Engine struct {
 	pub Publisher
 	reg *registry.Registry
+	// now stamps FrameBatch.received_ns at acceptance; injectable for tests.
+	now func() time.Time
 }
 
 // New builds an ingest engine over a publisher and a registry.
 func New(pub Publisher, reg *registry.Registry) *Engine {
-	return &Engine{pub: pub, reg: reg}
+	return &Engine{pub: pub, reg: reg, now: time.Now}
 }
 
 // Validate checks a batch against the ingest contract: non-nil, non-empty
@@ -78,6 +81,13 @@ func (e *Engine) PublishBatch(ctx context.Context, batch *gantryv1.FrameBatch) (
 			f.DeviceId = batch.DeviceId
 		}
 	}
+	// Stamp arrival time (telemetry.proto FrameBatch.received_ns: "Stamped by the
+	// INGEST SERVER at acceptance"). Frame.timestamp_ns is measurement time; this
+	// is when Edge accepted the batch. Their difference is the end-to-end latency,
+	// and it is persisted alongside samples in the Parquet segment store. The
+	// server is authoritative: any emitter-supplied value is overwritten.
+	batch.ReceivedNs = uint64(e.now().UnixNano())
+
 	// Registry update first so ListChannels reflects auto-registered channels
 	// even for frames on brand-new channels.
 	e.reg.ObserveBatch(batch)

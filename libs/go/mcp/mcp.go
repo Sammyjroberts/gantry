@@ -94,6 +94,9 @@ type Deps struct {
 	// Experiments backs the experiment tools (optional). When nil, the
 	// start_experiment/stop_experiment/list_experiments tools are not registered.
 	Experiments Experiments
+	// SQL backs the query_sql tool (optional). When nil, query_sql is not
+	// registered. Edge wires the DuckDB engine here (via a thin adapter).
+	SQL SQLRunner
 	// StartedAt is when the hosting server came up, for uptime reporting. If
 	// zero, uptime is reported as 0.
 	StartedAt time.Time

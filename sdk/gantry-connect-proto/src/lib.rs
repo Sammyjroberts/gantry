@@ -29,6 +29,7 @@ mod tests {
         let batch = FrameBatch {
             device_id: "sim-robot".into(),
             sequence: 42,
+            received_ns: 0,
             frames: vec![
                 Frame {
                     channel: "drive.motor_left.current_a".into(),

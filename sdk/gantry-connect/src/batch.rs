@@ -26,5 +26,7 @@ pub fn batch(device_id: impl Into<String>, sequence: u64, frames: Vec<Frame>) ->
         device_id: device_id.into(),
         sequence,
         frames,
+        // Stamped by the ingest server at acceptance; emitters leave it zero.
+        received_ns: 0,
     }
 }

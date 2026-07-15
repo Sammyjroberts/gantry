@@ -44,6 +44,12 @@ func registerTools(s *mcpsdk.Server, d Deps) {
 	if d.Experiments != nil {
 		registerExperimentTools(s, d)
 	}
+
+	// The query_sql tool is registered only when a SQL runner (DuckDB engine
+	// adapter) is wired into Deps.
+	if d.SQL != nil {
+		registerSQLTool(s, d)
+	}
 }
 
 // ---- list_channels ----

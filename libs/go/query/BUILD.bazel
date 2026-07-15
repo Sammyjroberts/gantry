@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "asserts.go",
         "downsample.go",
+        "planner.go",
         "query.go",
         "value.go",
     ],
@@ -20,6 +21,7 @@ go_test(
     name = "query_test",
     srcs = [
         "downsample_test.go",
+        "planner_test.go",
         "query_test.go",
     ],
     embed = [":query"],

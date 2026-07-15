@@ -10,10 +10,10 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//gen/go/gantry/v1:gantry",
-        "@com_github_nats_io_nats_go//:go_default_library",
-        "@com_github_nats_io_nats_go//jetstream:go_default_library",
-        "@com_github_nats_io_nats_server_v2//server:go_default_library",
-        "@org_golang_google_protobuf//proto:go_default_library",
+        "@com_github_nats_io_nats_go//:nats_go",
+        "@com_github_nats_io_nats_go//jetstream",
+        "@com_github_nats_io_nats_server_v2//server",
+        "@org_golang_google_protobuf//proto",
     ],
 )
 

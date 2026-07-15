@@ -71,13 +71,16 @@ func TestReopenIsIdempotent(t *testing.T) {
 		t.Fatalf("name = %q, want %q", name, "run")
 	}
 
-	// Applied migration version must be recorded exactly once at 1.
+	// Goose bookkeeping must record at least the first migration. We assert
+	// >= 1 rather than an exact version so this test stays valid as later
+	// migrations (0002+, owned by other schemas) are added; idempotency is
+	// proven by the surviving row above and by Reopen not erroring.
 	var version int64
 	if err := db2.QueryRowContext(ctx,
 		`SELECT max(version_id) FROM goose_db_version`).Scan(&version); err != nil {
 		t.Fatalf("goose bookkeeping missing: %v", err)
 	}
-	if version != 1 {
-		t.Fatalf("current migration version = %d, want 1", version)
+	if version < 1 {
+		t.Fatalf("current migration version = %d, want >= 1", version)
 	}
 }

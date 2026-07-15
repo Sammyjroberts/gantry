@@ -13,12 +13,17 @@
     "@gantry/api-client": "workspace:*",
     "@gantry/timeseries": "workspace:*",
     "@gantry/ui": "workspace:*",
+    "@react-three/drei": "^9.114.0",
+    "@react-three/fiber": "^8.17.10",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "uplot": "^1.6.31"
+    "three": "^0.169.0",
+    "uplot": "^1.6.31",
+    "urdf-loader": "^0.12.4"
   },
   "devDependencies": {
     "@testing-library/react": "^16.1.0",
+    "@types/three": "^0.169.0",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",

@@ -28,6 +28,9 @@ type queryService struct {
 	gantryv1connect.UnimplementedQueryServiceHandler
 	bus    *stream.Bus
 	stater mcp.StreamStater
+	// segments serves the durable historical span; nil falls back to pure
+	// stream replay (the pre-segment-store behavior).
+	segments query.SegmentReader
 }
 
 func (s *queryService) QueryRange(ctx context.Context, req *connect.Request[gantryv1.QueryRangeRequest]) (*connect.Response[gantryv1.QueryRangeResponse], error) {
@@ -55,7 +58,7 @@ func (s *queryService) QueryRange(ctx context.Context, req *connect.Request[gant
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("stream state: %w", err))
 	}
 
-	coll, err := query.Collect(ctx, s.bus, query.Options{
+	coll, err := query.CollectWithSegments(ctx, s.bus, s.segments, query.Options{
 		DeviceID:     m.DeviceId,
 		Channels:     m.Channels,
 		StartNs:      startNs,

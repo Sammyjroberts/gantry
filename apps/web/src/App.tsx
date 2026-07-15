@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import {
   createLiveClient,
   ValueKind,
@@ -55,6 +55,14 @@ import {
   subscribeNames,
   type ChannelId,
 } from "./channel";
+import { valueAtOrBefore, type Sampler } from "./pose";
+import type { ChannelOption } from "./scene3dControls";
+
+// The entire 3D feature (three.js / react-three / urdf-loader) is a lazily
+// imported chunk — none of it is in the main bundle until the "3D" toggle mounts
+// it. Type-only imports above (Sampler, ChannelOption) come from three-free
+// modules, so they add no runtime weight here.
+const Scene3D = lazy(() => import("./Scene3D"));
 
 const CURSOR_SYNC_KEY = "gantry-cursor";
 
@@ -131,6 +139,15 @@ export function App() {
   const [yLocks, setYLocks] = useState<Map<string, [number, number]>>(new Map());
   const [, setTick] = useState(0);
 
+  // 3D robot viewer: toggle + the channel keys its bindings need. Bound channels
+  // are folded into the live subscription so the robot has data even when they
+  // aren't charted. Reported up from Scene3D (empty on close/unmount).
+  const [show3D, setShow3D] = useState(false);
+  const [poseChannelKeys, setPoseChannelKeys] = useState<string[]>([]);
+  // A fresh sampler is installed each render (below); Scene3D reads it in its
+  // frame loop so the robot updates without any per-frame React render.
+  const sampleRef = useRef<Sampler>(() => null);
+
   const metaByChannel = useMemo(() => {
     const m = new Map<string, ChannelMeta>();
     for (const d of devices) {
@@ -151,6 +168,27 @@ export function App() {
   // multi-device subscriptions stay attributable (frames carry device_id).
   const multiDevice = devices.length > 1;
 
+  // Catalogue projected for the 3D binding pickers + device selector.
+  const deviceIds = useMemo(
+    () => [...new Set(devices.map((d) => d.deviceId).filter(Boolean))],
+    [devices],
+  );
+  const channelOptions = useMemo<ChannelOption[]>(() => {
+    const opts: ChannelOption[] = [];
+    for (const d of devices) {
+      for (const c of d.channels) {
+        const base = channelLabel(c.packet, c.name);
+        opts.push({
+          key: infoKey(c),
+          label: multiDevice && d.deviceId ? `${d.deviceId} · ${base}` : base,
+          device: d.deviceId,
+          unit: c.unit,
+        });
+      }
+    }
+    return opts;
+  }, [devices, multiDevice]);
+
   // Load the channel catalogue on mount.
   useEffect(() => {
     const client = createLiveClient(baseUrl);
@@ -169,7 +207,14 @@ export function App() {
   // Selected identities (keys) vs. the distinct channel NAMES sent on the wire.
   // The server routes by name; frames are re-keyed by (packet, name) client-side.
   const selectedList = useMemo(() => [...selected], [selected]);
-  const subscribeChannels = useMemo(() => subscribeNames(selected), [selected]);
+  // Union selected chart channels with the robot's bound channels, so both the
+  // charts and the 3D model are fed from one subscription.
+  const poseKey = poseChannelKeys.join(",");
+  const subscribeChannels = useMemo(
+    () => subscribeNames(new Set([...selected, ...poseChannelKeys])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selected, poseKey],
+  );
 
   const status = useLiveStream({
     baseUrl,
@@ -215,18 +260,29 @@ export function App() {
   const nowSec = nowMs / 1000;
   const bounds: Bounds = { oldest: nowSec - HISTORY_HORIZON_SEC, now: nowSec };
 
-  // Per-channel oldest buffered sample (the ring/history seam).
+  // Channels the history layer tracks. During replay we also cover the robot's
+  // bound channels so the model can re-enact the run (value-at-cursor lookups
+  // fall through to history when the ring doesn't reach that far back). In live
+  // mode only charted channels are fetched — bound channels get their live
+  // values straight from the ring, no history needed.
   const plotKey = plotChannels.join(",");
+  const historyKeys = useMemo(
+    () => (replay ? [...new Set([...plotChannels, ...poseChannelKeys])] : plotChannels),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [plotKey, poseKey, replay],
+  );
+
+  // Per-channel oldest buffered sample (the ring/history seam).
   const ringOldestByKey = useMemo(() => {
     const m = new Map<string, number | null>();
-    for (const key of plotChannels) {
+    for (const key of historyKeys) {
       const o = store.get(key)?.oldest();
       m.set(key, o ? Number(o.tNs) / 1e9 : null);
     }
     return m;
     // Recompute each tick as the buffer fills (nowSec advances every render).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plotKey, nowSec]);
+  }, [historyKeys, nowSec]);
 
   // The replay playhead (epoch seconds), sampled from the pure clock this tick.
   const replayCursorSec = replay ? cursorAt(replay.clock, nowMs) : undefined;
@@ -252,7 +308,7 @@ export function App() {
   // fetch the visible window. Tier resolution follows the visible width.
   const visibleWidthSec = xRange[1] - xRange[0];
   const historyWindow: Span | null =
-    plotChannels.length === 0
+    historyKeys.length === 0
       ? null
       : replay
         ? [replay.startSec, replay.endSec]
@@ -261,14 +317,33 @@ export function App() {
     baseUrl,
     deviceId: "",
     channelNames: subscribeChannels,
-    channelKeys: plotChannels,
+    channelKeys: historyKeys,
     window: historyWindow,
     windowSec: replay ? windowSec : visibleWidthSec,
     nowSec,
     ringOldestByKey,
     targetPoints: HISTORY_TARGET_POINTS,
-    enabled: plotChannels.length > 0,
+    enabled: historyKeys.length > 0,
   });
+
+  // Install this render's pose sampler for the 3D drive. Live: latest ring value
+  // per channel. Replay: the value at/or-before the playback cursor — read from
+  // the ring, falling back to the history layer for runs older than the buffer
+  // (the same ring+history sources the charts combine). Reads happen in
+  // Scene3D's frame loop via this ref, so no per-frame React render is needed.
+  sampleRef.current = (key: string): number | null => {
+    if (replay && replayCursorSec !== undefined) {
+      const cursorNs = BigInt(Math.floor(replayCursorSec * 1e9));
+      const w = store.window(key, undefined, cursorNs);
+      if (w.x.length > 0) return w.y[w.x.length - 1] ?? null;
+      const hr = history.render(key, [replayCursorSec - HISTORY_HORIZON_SEC, replayCursorSec]);
+      if (!hr) return null;
+      return hr.kind === "raw"
+        ? valueAtOrBefore(hr.x, hr.y, replayCursorSec)
+        : valueAtOrBefore(hr.x, hr.mean, replayCursorSec);
+    }
+    return store.get(key)?.latest()?.value ?? null;
+  };
 
   // Experiment overlay bands. Running runs extend to the live edge (nowSec).
   const regions = useMemo(
@@ -348,6 +423,13 @@ export function App() {
           <span className="brand-mark">▚</span> GANTRY <span className="brand-sub">console</span>
         </div>
         <div className="topbar-controls">
+          <button
+            className={`ctl-btn ${show3D ? "is-active" : ""}`}
+            onClick={() => setShow3D((v) => !v)}
+            title="toggle the 3D robot viewer + URDF editor"
+          >
+            ▚ 3D
+          </button>
           <button
             className={`ctl-btn ${paused ? "is-paused" : ""}`}
             onClick={() => setPaused((p) => !p)}
@@ -500,6 +582,24 @@ export function App() {
             );
           })}
         </main>
+
+        {show3D && (
+          <aside className="scene3d-dock">
+            <Suspense
+              fallback={<div className="scene3d-loading">loading 3D module…</div>}
+            >
+              <Scene3D
+                baseUrl={baseUrl}
+                devices={deviceIds}
+                channels={channelOptions}
+                sampleRef={sampleRef}
+                replaying={!!replay}
+                onBoundChannelsChange={setPoseChannelKeys}
+                onClose={() => setShow3D(false)}
+              />
+            </Suspense>
+          </aside>
+        )}
       </div>
 
       <StatusBar

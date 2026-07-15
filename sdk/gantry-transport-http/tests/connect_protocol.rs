@@ -72,6 +72,7 @@ fn sample_batch() -> FrameBatch {
     FrameBatch {
         device_id: "sim-robot".into(),
         sequence: 7,
+        received_ns: 0,
         frames: vec![Frame {
             channel: "drive.motor_left.current_a".into(),
             timestamp_ns: 123,

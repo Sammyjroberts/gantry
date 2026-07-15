@@ -425,6 +425,7 @@ impl<T: Transport> Translator<T> {
                 device_id: dev.clone(),
                 sequence: self.sequence,
                 frames: chunk.to_vec(),
+                received_ns: 0, // server-stamped at ingest
             };
             self.sequence += 1;
             match publish_with_retry(&self.sink, &batch, &self.retry) {

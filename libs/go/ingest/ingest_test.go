@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	gantryv1 "github.com/Sammyjroberts/gantry/gen/go/gantry/v1"
 	"github.com/Sammyjroberts/gantry/libs/go/registry"
@@ -74,6 +75,25 @@ func TestPublishBatchAcksSequence(t *testing.T) {
 	list := e.Registry().List("d")
 	if len(list) != 1 || len(list[0].Channels) != 1 || list[0].Channels[0].Name != "speed" {
 		t.Fatalf("channel not auto-registered: %+v", list)
+	}
+}
+
+func TestPublishBatchStampsReceivedNs(t *testing.T) {
+	pub := &fakePub{}
+	e := New(pub, registry.New())
+	const fixed = int64(1_700_000_000_000_000_000)
+	e.now = func() time.Time { return time.Unix(0, fixed) }
+
+	// Emitter supplies its own (wrong) received_ns; the server must overwrite it.
+	batch := &gantryv1.FrameBatch{DeviceId: "d", Sequence: 1, ReceivedNs: 999, Frames: []*gantryv1.Frame{goodFrame("speed")}}
+	if _, err := e.PublishBatch(context.Background(), batch); err != nil {
+		t.Fatal(err)
+	}
+	if len(pub.batches) != 1 {
+		t.Fatalf("published %d batches, want 1", len(pub.batches))
+	}
+	if got := pub.batches[0].ReceivedNs; got != uint64(fixed) {
+		t.Fatalf("received_ns = %d, want %d (server-stamped, emitter value overwritten)", got, fixed)
 	}
 }
 
