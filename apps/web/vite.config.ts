@@ -20,6 +20,16 @@ export default defineConfig({
         target: "http://localhost:4780",
         changeOrigin: true,
       },
+      // Video chunk capture/replay (POST/GET /video/chunks, GET /video/cameras)
+      // and the DuckDB SQL console (POST /sql) — same-origin on the Edge in prod.
+      "/video": {
+        target: "http://localhost:4780",
+        changeOrigin: true,
+      },
+      "/sql": {
+        target: "http://localhost:4780",
+        changeOrigin: true,
+      },
     },
   },
   build: {

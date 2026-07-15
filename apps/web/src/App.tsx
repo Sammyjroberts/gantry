@@ -63,6 +63,11 @@ import type { ChannelOption } from "./scene3dControls";
 // it. Type-only imports above (Sampler, ChannelOption) come from three-free
 // modules, so they add no runtime weight here.
 const Scene3D = lazy(() => import("./Scene3D"));
+// Video capture/replay + SQL console are likewise lazy docks: their code (and
+// the video panel's MediaRecorder/object-URL machinery) stays out of the main
+// bundle until their toolbar toggle mounts them.
+const VideoPanel = lazy(() => import("./VideoPanel"));
+const SqlConsole = lazy(() => import("./SqlConsole"));
 
 const CURSOR_SYNC_KEY = "gantry-cursor";
 
@@ -143,6 +148,8 @@ export function App() {
   // are folded into the live subscription so the robot has data even when they
   // aren't charted. Reported up from Scene3D (empty on close/unmount).
   const [show3D, setShow3D] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
+  const [showSql, setShowSql] = useState(false);
   const [poseChannelKeys, setPoseChannelKeys] = useState<string[]>([]);
   // A fresh sampler is installed each render (below); Scene3D reads it in its
   // frame loop so the robot updates without any per-frame React render.
@@ -431,6 +438,20 @@ export function App() {
             ▚ 3D
           </button>
           <button
+            className={`ctl-btn ${showVideo ? "is-active" : ""}`}
+            onClick={() => setShowVideo((v) => !v)}
+            title="toggle the video capture / replay panel"
+          >
+            ◉ video
+          </button>
+          <button
+            className={`ctl-btn ${showSql ? "is-active" : ""}`}
+            onClick={() => setShowSql((v) => !v)}
+            title="toggle the SQL console"
+          >
+            ▤ sql
+          </button>
+          <button
             className={`ctl-btn ${paused ? "is-paused" : ""}`}
             onClick={() => setPaused((p) => !p)}
           >
@@ -600,7 +621,35 @@ export function App() {
             </Suspense>
           </aside>
         )}
+
+        {showVideo && (
+          <aside className="video-dock">
+            <Suspense fallback={<div className="scene3d-loading">loading video module…</div>}>
+              <VideoPanel
+                baseUrl={baseUrl}
+                replay={
+                  replay && replayCursorSec !== undefined
+                    ? {
+                        startSec: replay.startSec,
+                        endSec: replay.endSec,
+                        cursorSec: replayCursorSec,
+                        playing: replay.clock.playing,
+                        speed: replay.clock.speed,
+                      }
+                    : null
+                }
+                onClose={() => setShowVideo(false)}
+              />
+            </Suspense>
+          </aside>
+        )}
       </div>
+
+      {showSql && (
+        <Suspense fallback={<div className="scene3d-loading">loading SQL module…</div>}>
+          <SqlConsole baseUrl={baseUrl} onClose={() => setShowSql(false)} />
+        </Suspense>
+      )}
 
       <StatusBar
         conn={status.conn}
