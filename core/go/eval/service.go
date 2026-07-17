@@ -267,7 +267,119 @@ func (s *Service) SubmitVerdict(ctx context.Context, trialID string, v *gantryv1
 	if err := s.store.UpsertVerdict(ctx, trialID, v); err != nil {
 		return nil, err
 	}
-	return s.store.GetTrial(ctx, trialID)
+	// Recompute the trial disposition from all its verdicts under the default
+	// combine policy, so the outcome always reflects the current verdict set.
+	t, err := s.store.GetTrial(ctx, trialID)
+	if err != nil {
+		return nil, err
+	}
+	outcome := deriveOutcome(t.Verdicts)
+	if err := s.store.UpdateTrialOutcome(ctx, trialID, outcome); err != nil {
+		return nil, err
+	}
+	t.Outcome = outcome
+	return t, nil
+}
+
+// ---- gating ----
+
+// EvaluateGate aggregates a run's trial outcomes into metrics and compares the
+// candidate against the baseline for its (suite, class) under the suite gate
+// policy. It stores the GateResult on the run (status → GATED) and returns it. A
+// missing baseline is a bootstrap: baseline-relative checks pass with a noted
+// reason so the first qualifying candidate can seed the champion.
+func (s *Service) EvaluateGate(ctx context.Context, runID string) (*gantryv1.GateResult, error) {
+	if runID == "" {
+		return nil, fmt.Errorf("%w: run_id is required", ErrInvalid)
+	}
+	run, err := s.store.GetRun(ctx, runID)
+	if err != nil {
+		return nil, err
+	}
+	suite, err := s.store.GetSuite(ctx, run.SuiteId)
+	if err != nil {
+		return nil, err
+	}
+	trials, err := s.store.ListTrials(ctx, runID)
+	if err != nil {
+		return nil, err
+	}
+	m, err := aggregate(trials, suite.MetricsJson)
+	if err != nil {
+		return nil, err
+	}
+	baseline, err := s.store.GetBaseline(ctx, run.SuiteId, run.StationClass)
+	if err != nil {
+		if !errors.Is(err, ErrNotFound) {
+			return nil, err
+		}
+		baseline = nil
+	}
+	minScored := 0
+	for _, sc := range suite.Scenarios {
+		minScored += int(sc.MinScored)
+	}
+	res, err := evaluateGate(m, baseline, suite.GateJson, minScored)
+	if err != nil {
+		return nil, err
+	}
+	res.Candidate = run.Candidate
+	if err := s.store.SetRunGate(ctx, runID, res, gantryv1.RunStatus_RUN_STATUS_GATED); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// PromoteBaseline promotes a passed run's candidate to the champion for its
+// (suite, class). Idempotent: promoting a run that is already the champion is a
+// no-op. Requires the run to have been gated and passed.
+func (s *Service) PromoteBaseline(ctx context.Context, runID, idempotencyKey string) (*gantryv1.Baseline, error) {
+	if runID == "" {
+		return nil, fmt.Errorf("%w: run_id is required", ErrInvalid)
+	}
+	run, err := s.store.GetRun(ctx, runID)
+	if err != nil {
+		return nil, err
+	}
+	if run.Gate == nil {
+		return nil, fmt.Errorf("%w: run %s has not been gated", ErrInvalid, runID)
+	}
+	if !run.Gate.Passed {
+		return nil, fmt.Errorf("%w: run %s gate did not pass", ErrInvalid, runID)
+	}
+	if existing, err := s.store.GetBaseline(ctx, run.SuiteId, run.StationClass); err == nil {
+		if existing.FromRunId == runID {
+			return existing, nil // already promoted — idempotent no-op
+		}
+	} else if !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+	scored := int(run.Gate.Pass + run.Gate.Fail)
+	rate := 0.0
+	if scored > 0 {
+		rate = float64(run.Gate.Pass) / float64(scored)
+	}
+	b := &gantryv1.Baseline{
+		SuiteId:      run.SuiteId,
+		StationClass: run.StationClass,
+		Subject:      run.Candidate,
+		FromRunId:    runID,
+		SuccessRate:  rate,
+		PromotedNs:   uint64(s.now().UnixNano()),
+	}
+	if err := s.store.UpsertBaseline(ctx, b); err != nil {
+		return nil, err
+	}
+	_ = idempotencyKey // natural idempotency via from_run_id
+	return b, nil
+}
+
+// GetBaseline returns the champion for a (suite, class), or ErrNotFound.
+func (s *Service) GetBaseline(ctx context.Context, suiteID, class string) (*gantryv1.Baseline, error) {
+	if suiteID == "" {
+		return nil, fmt.Errorf("%w: suite_id is required", ErrInvalid)
+	}
+	return s.store.GetBaseline(ctx, suiteID, class)
 }
 
 // ---- helpers ----

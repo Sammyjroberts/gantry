@@ -110,3 +110,27 @@ func (h *Handler) SubmitVerdict(ctx context.Context, req *connect.Request[gantry
 	}
 	return connect.NewResponse(&gantryv1.SubmitVerdictResponse{Trial: t}), nil
 }
+
+func (h *Handler) EvaluateGate(ctx context.Context, req *connect.Request[gantryv1.EvaluateGateRequest]) (*connect.Response[gantryv1.EvaluateGateResponse], error) {
+	res, err := h.svc.EvaluateGate(ctx, req.Msg.RunId)
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	return connect.NewResponse(&gantryv1.EvaluateGateResponse{Result: res}), nil
+}
+
+func (h *Handler) PromoteBaseline(ctx context.Context, req *connect.Request[gantryv1.PromoteBaselineRequest]) (*connect.Response[gantryv1.PromoteBaselineResponse], error) {
+	b, err := h.svc.PromoteBaseline(ctx, req.Msg.RunId, req.Msg.IdempotencyKey)
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	return connect.NewResponse(&gantryv1.PromoteBaselineResponse{Baseline: b}), nil
+}
+
+func (h *Handler) GetBaseline(ctx context.Context, req *connect.Request[gantryv1.GetBaselineRequest]) (*connect.Response[gantryv1.GetBaselineResponse], error) {
+	b, err := h.svc.GetBaseline(ctx, req.Msg.SuiteId, req.Msg.StationClass)
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	return connect.NewResponse(&gantryv1.GetBaselineResponse{Baseline: b}), nil
+}

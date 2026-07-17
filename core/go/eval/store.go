@@ -199,13 +199,13 @@ func (s *Store) GetRunByIdempotencyKey(ctx context.Context, key string) (*gantry
 // GetRun returns one run by id, or ErrNotFound.
 func (s *Store) GetRun(ctx context.Context, id string) (*gantryv1.EvalRun, error) {
 	r := &gantryv1.EvalRun{}
-	var candidateJSON, stationIDsJSON, baselineRef string
+	var candidateJSON, stationIDsJSON, baselineRef, gateJSON string
 	var status, replicas, created, started, ended int64
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, suite_id, candidate_json, baseline_ref, status, target_selector, replicas, station_ids_json, created_ns, started_ns, ended_ns
+		`SELECT id, suite_id, candidate_json, baseline_ref, status, target_selector, replicas, station_ids_json, station_class, gate_json, created_ns, started_ns, ended_ns
 		 FROM eval_runs WHERE id = ?`, id).
 		Scan(&r.Id, &r.SuiteId, &candidateJSON, &baselineRef, &status, &r.TargetSelector,
-			&replicas, &stationIDsJSON, &created, &started, &ended)
+			&replicas, &stationIDsJSON, &r.StationClass, &gateJSON, &created, &started, &ended)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -219,6 +219,12 @@ func (s *Store) GetRun(ctx context.Context, id string) (*gantryv1.EvalRun, error
 		r.Candidate = &gantryv1.Subject{}
 		if err := protojson.Unmarshal([]byte(candidateJSON), r.Candidate); err != nil {
 			return nil, fmt.Errorf("eval: unmarshal candidate: %w", err)
+		}
+	}
+	if gateJSON != "" {
+		r.Gate = &gantryv1.GateResult{}
+		if err := protojson.Unmarshal([]byte(gateJSON), r.Gate); err != nil {
+			return nil, fmt.Errorf("eval: unmarshal gate: %w", err)
 		}
 	}
 	if stationIDsJSON != "" {
@@ -452,6 +458,89 @@ func (s *Store) verdicts(ctx context.Context, trialID string) ([]*gantryv1.Verdi
 		out = append(out, v)
 	}
 	return out, rows.Err()
+}
+
+// UpdateTrialOutcome stores the derived TrialOutcome for a trial.
+func (s *Store) UpdateTrialOutcome(ctx context.Context, trialID string, outcome *gantryv1.TrialOutcome) error {
+	blob, err := marshalMsg(outcome)
+	if err != nil {
+		return err
+	}
+	res, err := s.db.ExecContext(ctx, `UPDATE eval_trials SET outcome_json = ? WHERE id = ?`, blob, trialID)
+	if err != nil {
+		return fmt.Errorf("eval: update outcome: %w", err)
+	}
+	return affectedOrNotFound(res)
+}
+
+// SetRunGate stores a run's gate result and status.
+func (s *Store) SetRunGate(ctx context.Context, runID string, gate *gantryv1.GateResult, status gantryv1.RunStatus) error {
+	blob, err := marshalMsg(gate)
+	if err != nil {
+		return err
+	}
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE eval_runs SET gate_json = ?, status = ? WHERE id = ?`, blob, int64(status), runID)
+	if err != nil {
+		return fmt.Errorf("eval: set run gate: %w", err)
+	}
+	return affectedOrNotFound(res)
+}
+
+// UpsertBaseline sets the champion for a (suite_id, station_class).
+func (s *Store) UpsertBaseline(ctx context.Context, b *gantryv1.Baseline) error {
+	subjectJSON, err := marshalMsg(b.Subject)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx,
+		`INSERT INTO eval_baselines (suite_id, station_class, subject_json, from_run_id, success_rate, promoted_ns)
+		 VALUES (?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(suite_id, station_class) DO UPDATE SET
+		   subject_json=excluded.subject_json, from_run_id=excluded.from_run_id,
+		   success_rate=excluded.success_rate, promoted_ns=excluded.promoted_ns`,
+		b.SuiteId, b.StationClass, subjectJSON, b.FromRunId, b.SuccessRate, int64(b.PromotedNs))
+	if err != nil {
+		return fmt.Errorf("eval: upsert baseline: %w", err)
+	}
+	return nil
+}
+
+// GetBaseline returns the champion for a (suite_id, station_class), or ErrNotFound.
+func (s *Store) GetBaseline(ctx context.Context, suiteID, class string) (*gantryv1.Baseline, error) {
+	b := &gantryv1.Baseline{SuiteId: suiteID, StationClass: class}
+	var subjectJSON string
+	var promoted int64
+	err := s.db.QueryRowContext(ctx,
+		`SELECT subject_json, from_run_id, success_rate, promoted_ns
+		 FROM eval_baselines WHERE suite_id = ? AND station_class = ?`, suiteID, class).
+		Scan(&subjectJSON, &b.FromRunId, &b.SuccessRate, &promoted)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("eval: get baseline: %w", err)
+	}
+	b.PromotedNs = uint64(promoted)
+	if subjectJSON != "" {
+		b.Subject = &gantryv1.Subject{}
+		if err := protojson.Unmarshal([]byte(subjectJSON), b.Subject); err != nil {
+			return nil, fmt.Errorf("eval: unmarshal baseline subject: %w", err)
+		}
+	}
+	return b, nil
+}
+
+// affectedOrNotFound maps a zero-rows-affected result to ErrNotFound.
+func affectedOrNotFound(res sql.Result) error {
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("eval: rows affected: %w", err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // marshalMsg renders a proto message to a protojson string ("" for nil).
