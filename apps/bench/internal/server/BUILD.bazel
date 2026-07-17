@@ -22,6 +22,7 @@ go_library(
         "//core/go/benchdb",
         "//core/go/blob",
         "//core/go/duckdb",
+        "//core/go/eval",
         "//core/go/experiments",
         "//core/go/hardware",
         "//core/go/ingest",
