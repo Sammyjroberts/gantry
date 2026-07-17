@@ -46,8 +46,20 @@ service EvalService {
   // Submit a verifier's verdict for a trial. Upserts on
   // (trial_id, verifier_id, verifier_version): resubmitting the same verifier
   // build replaces in place; a new version adds a distinct verdict (enabling
-  // re-grade of stored evidence without re-running the robot).
+  // re-grade of stored evidence without re-running the robot). Recomputes the
+  // trial's TrialOutcome from all its verdicts under the suite combine policy.
   rpc SubmitVerdict(SubmitVerdictRequest) returns (SubmitVerdictResponse);
+
+  // ---- gating: the release decision ----
+  // Aggregate a run's trial outcomes into metrics and compare the candidate
+  // against the baseline for its (suite, class) under the suite gate policy.
+  // Read-only: computes and stores the GateResult on the run without promoting.
+  rpc EvaluateGate(EvaluateGateRequest) returns (EvaluateGateResponse);
+  // Promote a passed run's candidate to the baseline for its (suite, class).
+  // Idempotent per run (promoting the same run twice is a no-op).
+  rpc PromoteBaseline(PromoteBaselineRequest) returns (PromoteBaselineResponse);
+  // Fetch the current baseline for a (suite, class). class "" = suite-wide.
+  rpc GetBaseline(GetBaselineRequest) returns (GetBaselineResponse);
 }
 
 // Phase of a check: when in a trial's lifecycle it applies.
@@ -139,6 +151,11 @@ message Suite {
   string gate_json = 9;
   fixed64 created_ns = 10;
   fixed64 updated_ns = 11;
+  // Station-tag keys that partition baselines within this suite. Empty (the
+  // default) = one champion per suite; e.g. ["arm", "sim"] keeps a separate
+  // champion per arm model and per sim/real. The class of a run is the tuple of
+  // these tag values on the stations it ran (see EvalRun.station_class).
+  repeated string baseline_class_keys = 12;
 }
 
 // A single atomic judgment inside a verdict.
@@ -238,6 +255,12 @@ message EvalRun {
   fixed64 started_ns = 10;
   // 0 while running.
   fixed64 ended_ns = 11;
+  // The baseline class this run's candidate is compared within (the projection
+  // of the suite's baseline_class_keys over the run's station tags; "" when the
+  // suite declares no class keys).
+  string station_class = 12;
+  // The gate outcome, populated by EvaluateGate.
+  GateResult gate = 13;
 }
 
 // ---- request/response ----
@@ -340,4 +363,72 @@ message SubmitVerdictRequest {
 
 message SubmitVerdictResponse {
   Trial trial = 1;
+}
+
+// The result of one gate check: a candidate metric compared to the baseline.
+message GateCheck {
+  string metric = 1;
+  double candidate_value = 2;
+  double baseline_value = 3;
+  // ">=" | "non_inferior" | "abs>=" | "<=".
+  string op = 4;
+  // Non-inferiority / tolerance margin (or absolute floor for "abs>=").
+  double margin = 5;
+  bool passed = 6;
+  // Human-readable rationale, e.g. the Wilson interval used.
+  string detail = 7;
+}
+
+// The gate outcome for a run: pass iff every check passed and none were
+// inconclusive.
+message GateResult {
+  bool passed = 1;
+  // True when too few trials scored to decide (treated as fail in CI).
+  bool inconclusive = 2;
+  repeated GateCheck checks = 3;
+  Subject candidate = 4;
+  Subject baseline = 5;
+  // Trial disposition tallies backing the metrics (VOID excluded from rates).
+  uint32 pass = 6;
+  uint32 fail = 7;
+  uint32 void = 8;
+}
+
+// The current champion for a (suite, class): what candidates are gated against.
+message Baseline {
+  string suite_id = 1;
+  // "" = suite-wide (the default when the suite declares no class keys).
+  string station_class = 2;
+  Subject subject = 3;
+  // The run that established this baseline.
+  string from_run_id = 4;
+  // The champion's recorded success rate (the gate's comparison point).
+  double success_rate = 5;
+  fixed64 promoted_ns = 6;
+}
+
+message EvaluateGateRequest {
+  string run_id = 1;
+}
+
+message EvaluateGateResponse {
+  GateResult result = 1;
+}
+
+message PromoteBaselineRequest {
+  string run_id = 1;
+  string idempotency_key = 2;
+}
+
+message PromoteBaselineResponse {
+  Baseline baseline = 1;
+}
+
+message GetBaselineRequest {
+  string suite_id = 1;
+  string station_class = 2;
+}
+
+message GetBaselineResponse {
+  Baseline baseline = 1;
 }
