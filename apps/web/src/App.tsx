@@ -16,6 +16,8 @@ import { HardwareListPage } from "./pages/HardwareListPage";
 import { HardwareDetailPage } from "./pages/HardwareDetailPage";
 import { ExperimentsPage } from "./pages/ExperimentsPage";
 import { DataPage } from "./pages/DataPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { ConnectPrompt } from "./auth/ConnectPrompt";
 import { useTimeStore } from "./store/timeStore";
 import { useClockDriver } from "./store/clock";
 
@@ -60,9 +62,13 @@ export function App() {
               <Route path="/hardware/:deviceId" element={<HardwareDetailPage />} />
               <Route path="/experiments" element={<ExperimentsPage />} />
               <Route path="/data" element={<DataPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
+          {/* Global "connect to bench" gate. Localhost never triggers it: the
+              Bench trusts loopback and never returns 401, so it stays hidden. */}
+          <ConnectPrompt />
         </LiveProvider>
       </BrowserRouter>
     </QueryClientProvider>

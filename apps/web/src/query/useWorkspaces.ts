@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createWorkspaceClient, type Workspace } from "@gantry/api-client";
 import { resolveBaseUrl } from "../config";
+import { apiClientOptions } from "../auth/authGate";
 import { qk } from "./keys";
 
 /** List all workspaces (name + timestamps only; layout_json is omitted). */
@@ -10,7 +11,7 @@ export function useWorkspaceList() {
   return useQuery({
     queryKey: qk.workspaces,
     queryFn: async ({ signal }) => {
-      const client = createWorkspaceClient(baseUrl);
+      const client = createWorkspaceClient(baseUrl, apiClientOptions());
       const res = await client.listWorkspaces({}, { signal });
       // Newest-updated first for the switcher.
       return [...res.workspaces].sort((a, b) => Number(b.updatedNs - a.updatedNs));
@@ -26,7 +27,7 @@ export function useWorkspace(id: string | null) {
     queryKey: id ? qk.workspace(id) : ["workspace", "none"],
     enabled: !!id,
     queryFn: async ({ signal }): Promise<Workspace | null> => {
-      const client = createWorkspaceClient(baseUrl);
+      const client = createWorkspaceClient(baseUrl, apiClientOptions());
       const res = await client.getWorkspace({ id: id! }, { signal });
       return res.workspace ?? null;
     },
@@ -51,7 +52,7 @@ export function useUpsertWorkspace() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (args: UpsertArgs): Promise<Workspace> => {
-      const client = createWorkspaceClient(baseUrl);
+      const client = createWorkspaceClient(baseUrl, apiClientOptions());
       const res = await client.upsertWorkspace({
         workspace: {
           id: args.id,
@@ -76,7 +77,7 @@ export function useDeleteWorkspace() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      const client = createWorkspaceClient(baseUrl);
+      const client = createWorkspaceClient(baseUrl, apiClientOptions());
       await client.deleteWorkspace({ id });
     },
     onSuccess: (_v, id) => {

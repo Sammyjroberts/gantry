@@ -14,6 +14,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { chunkUrl, listChunks } from "./videoApi";
+import { reportFetchStatus } from "./auth/authGate";
 import { lagSeconds, nextLiveChunk, trailingWindow, type VideoChunk } from "./videoSync";
 
 const POLL_MS = 2000;
@@ -61,7 +62,10 @@ export function useVideoFollow(args: UseVideoFollowArgs): VideoFollowState {
       loadingRef.current = true;
       try {
         const res = await fetch(chunkUrl(baseUrl, chunk.id), { signal: ac.signal });
-        if (!res.ok) return; // pruned/gap → skip, try again next tick
+        if (!res.ok) {
+          reportFetchStatus(res.status); // 401 → auth gate; other non-2xx → skip
+          return; // pruned/gap → skip, try again next tick
+        }
         const blob = await res.blob();
         if (stopped) return;
         const url = URL.createObjectURL(blob);

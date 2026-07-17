@@ -5,6 +5,7 @@ import {
   Cpu,
   FlaskConical,
   Database,
+  Settings,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
@@ -48,6 +49,17 @@ export function NavRail() {
           </NavLink>
         ))}
       </div>
+
+      {/* Settings sits apart from the four main pages, above the status cluster. */}
+      <NavLink
+        to="/settings"
+        className={({ isActive }) => `nav-link nav-link--settings ${isActive ? "is-active" : ""}`}
+        title="Settings"
+        data-testid="nav-settings"
+      >
+        <Settings size={18} className="nav-icon" aria-hidden />
+        {!collapsed && <span className="nav-label">Settings</span>}
+      </NavLink>
 
       <div className="nav-foot">
         <div

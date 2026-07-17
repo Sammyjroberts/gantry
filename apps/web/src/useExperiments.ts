@@ -5,6 +5,7 @@ import {
   type ExperimentClient,
 } from "@gantry/api-client";
 import { isRunning, sortNewestFirst } from "./experiments";
+import { apiClientOptions } from "./auth/authGate";
 
 export interface UseExperimentsArgs {
   baseUrl: string;
@@ -54,12 +55,12 @@ export function useExperiments(args: UseExperimentsArgs): UseExperimentsResult {
   const [error, setError] = useState<string | null>(null);
 
   const clientRef = useRef<ExperimentClient | null>(null);
-  if (clientRef.current === null) clientRef.current = createExperimentClient(baseUrl);
+  if (clientRef.current === null) clientRef.current = createExperimentClient(baseUrl, apiClientOptions());
   // Rebind the client when baseUrl changes (rare; keeps the ref honest).
   const baseUrlRef = useRef(baseUrl);
   if (baseUrlRef.current !== baseUrl) {
     baseUrlRef.current = baseUrl;
-    clientRef.current = createExperimentClient(baseUrl);
+    clientRef.current = createExperimentClient(baseUrl, apiClientOptions());
   }
 
   // Merge one server-authoritative experiment into the list (upsert by id).

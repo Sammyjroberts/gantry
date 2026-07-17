@@ -9,6 +9,7 @@ go_library(
         "migrations/0003_video.sql",
         "migrations/0004_hardware.sql",
         "migrations/0005_workspaces.sql",
+        "migrations/0006_tokens.sql",
     ],
     importpath = "github.com/Sammyjroberts/gantry/core/go/benchdb",
     visibility = ["//visibility:public"],

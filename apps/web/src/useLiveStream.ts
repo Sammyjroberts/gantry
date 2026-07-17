@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createLiveClient } from "@gantry/api-client";
 import type { TimeSeriesStore } from "@gantry/timeseries";
+import { apiClientOptions } from "./auth/authGate";
 import { frameNumeric } from "./valueKind";
 import { channelKey } from "./channel";
 
@@ -95,7 +96,7 @@ export function useLiveStream(args: UseLiveStreamArgs): LiveStreamStatus {
     const ac = new AbortController();
     let stopped = false;
     let backoff = 250;
-    const client = createLiveClient(baseUrl);
+    const client = createLiveClient(baseUrl, apiClientOptions());
 
     async function run(): Promise<void> {
       let first = true;

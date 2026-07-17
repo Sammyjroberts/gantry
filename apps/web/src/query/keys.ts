@@ -7,4 +7,5 @@ export const qk = {
   experiments: (deviceId: string) => ["experiments", deviceId] as const,
   models: ["models"] as const,
   cameras: ["cameras"] as const,
+  tokens: ["tokens"] as const,
 };

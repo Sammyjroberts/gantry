@@ -43,6 +43,7 @@ import {
 import { encodeVizConfig } from "./hardware";
 import { movableJoints, parseUrdf, STARTER_URDF, type UrdfJoint } from "./urdf";
 import { listModels, loadModelText, modelUrl, saveModelText } from "./models";
+import { withToken } from "./auth/token";
 import {
   Scene3DControls,
   useDebounced,
@@ -113,9 +114,23 @@ function buildPrimitive(dims: PrimitiveDims): THREE.Group {
   return g;
 }
 
+/**
+ * Shared loading manager for every three.js asset fetch (URDF mesh refs, glb,
+ * stl). Loaders can't set an Authorization header, so on a remote bench the
+ * per-browser token rides as ?token= — the server accepts it for read-scoped
+ * GET /models/ only. withToken is a no-op on localhost (no token stored), so
+ * the primary path is untouched. Modifier runs per-request, reading the
+ * current token at load time.
+ */
+function authLoadingManager(): THREE.LoadingManager {
+  const m = new THREE.LoadingManager();
+  m.setURLModifier((url) => withToken(url));
+  return m;
+}
+
 /** Parse URDF text into a three object (ROS Z-up rotated onto three Y-up). */
 function buildUrdf(text: string, baseUrl: string): URDFRobot {
-  const loader = new URDFLoader();
+  const loader = new URDFLoader(authLoadingManager());
   loader.workingPath = modelUrl(baseUrl); // resolves mesh refs to /models/
   loader.parseCollision = false;
   const robot = loader.parse(text);
@@ -331,12 +346,12 @@ export default function Scene3D(props: Scene3DProps) {
     void (async () => {
       try {
         if (renderMode === "glb") {
-          const gltf = await new GLTFLoader().loadAsync(url);
+          const gltf = await new GLTFLoader(authLoadingManager()).loadAsync(url);
           if (ac.signal.aborted) return;
           disposed = gltf.scene;
           setMeshObject(gltf.scene);
         } else {
-          const geo = await new STLLoader().loadAsync(url);
+          const geo = await new STLLoader(authLoadingManager()).loadAsync(url);
           if (ac.signal.aborted) return;
           const mesh = new THREE.Mesh(
             geo,

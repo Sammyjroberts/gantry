@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createQueryClient, type ChannelSeries } from "@gantry/api-client";
+import { apiClientOptions } from "./auth/authGate";
 import {
   HistoryCache,
   coalesceSpans,
@@ -79,11 +80,11 @@ export function useHistory(args: UseHistoryArgs): UseHistoryResult {
   if (cacheRef.current === null) cacheRef.current = new HistoryCache();
   const cache = cacheRef.current;
 
-  const clientRef = useRef(createQueryClient(baseUrl));
+  const clientRef = useRef(createQueryClient(baseUrl, apiClientOptions()));
   const baseUrlRef = useRef(baseUrl);
   if (baseUrlRef.current !== baseUrl) {
     baseUrlRef.current = baseUrl;
-    clientRef.current = createQueryClient(baseUrl);
+    clientRef.current = createQueryClient(baseUrl, apiClientOptions());
   }
 
   const [version, setVersion] = useState(0);

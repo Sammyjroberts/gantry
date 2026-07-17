@@ -25,6 +25,10 @@ const CONTENT_TYPE_PROTO: &str = "application/proto";
 pub struct HttpTransport {
     base_url: String,
     agent: ureq::Agent,
+    /// Optional `Authorization` header value (e.g. `"Bearer gtk_..."`) attached to
+    /// every request. Needed to reach a non-loopback Bench, which requires a
+    /// scoped token (a loopback Bench trusts you and needs none).
+    auth_header: Option<String>,
 }
 
 impl HttpTransport {
@@ -39,6 +43,7 @@ impl HttpTransport {
             base_url: base_url.into(),
             connect_timeout: Duration::from_secs(5),
             io_timeout: Duration::from_secs(15),
+            auth_header: None,
         }
     }
 
@@ -54,13 +59,16 @@ impl HttpTransport {
     /// Perform a Connect unary call: POST proto bytes, return the response body bytes.
     fn unary(&self, method: &str, body: Vec<u8>) -> Result<Vec<u8>, TransportError> {
         let url = self.endpoint(method);
-        let result = self
+        let mut req = self
             .agent
             .post(&url)
             .set("Content-Type", CONTENT_TYPE_PROTO)
             .set("Accept", CONTENT_TYPE_PROTO)
-            .set("Connect-Protocol-Version", "1")
-            .send_bytes(&body);
+            .set("Connect-Protocol-Version", "1");
+        if let Some(auth) = &self.auth_header {
+            req = req.set("Authorization", auth);
+        }
+        let result = req.send_bytes(&body);
 
         match result {
             Ok(resp) => {
@@ -103,6 +111,7 @@ pub struct HttpTransportBuilder {
     base_url: String,
     connect_timeout: Duration,
     io_timeout: Duration,
+    auth_header: Option<String>,
 }
 
 impl HttpTransportBuilder {
@@ -118,6 +127,20 @@ impl HttpTransportBuilder {
         self
     }
 
+    /// Attach a bearer token to every request (sent as `Authorization: Bearer <token>`).
+    /// Required to publish to a non-loopback Bench; omit for a loopback Bench.
+    pub fn bearer_token(mut self, token: impl Into<String>) -> Self {
+        self.auth_header = Some(format!("Bearer {}", token.into()));
+        self
+    }
+
+    /// Set a raw `Authorization` header value verbatim (escape hatch for schemes
+    /// other than bearer). Prefer [`bearer_token`](Self::bearer_token).
+    pub fn authorization(mut self, value: impl Into<String>) -> Self {
+        self.auth_header = Some(value.into());
+        self
+    }
+
     /// Build the transport.
     pub fn build(self) -> HttpTransport {
         let agent = ureq::AgentBuilder::new()
@@ -128,6 +151,7 @@ impl HttpTransportBuilder {
         HttpTransport {
             base_url: self.base_url,
             agent,
+            auth_header: self.auth_header,
         }
     }
 }

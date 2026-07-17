@@ -18,6 +18,7 @@ go_library(
     visibility = ["//apps/bench:__subpackages__"],
     deps = [
         "//apps/bench/internal/ui",
+        "//core/go/auth",
         "//core/go/benchdb",
         "//core/go/blob",
         "//core/go/duckdb",
@@ -43,6 +44,7 @@ go_library(
 go_test(
     name = "server_test",
     srcs = [
+        "auth_e2e_test.go",
         "e2e_test.go",
         "export_e2e_test.go",
         "hardware_e2e_test.go",

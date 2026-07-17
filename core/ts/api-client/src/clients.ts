@@ -1,4 +1,4 @@
-import { createClient, type Client } from "@connectrpc/connect";
+import { createClient, type Client, type Interceptor } from "@connectrpc/connect";
 import {
   createConnectTransport,
   type ConnectTransportOptions,
@@ -9,6 +9,7 @@ import { ExperimentService } from "./gen/gantry/v1/experiment_pb";
 import { QueryService } from "./gen/gantry/v1/query_pb";
 import { HardwareService } from "./gen/gantry/v1/hardware_pb";
 import { WorkspaceService } from "./gen/gantry/v1/workspace_pb";
+import { TokenService } from "./gen/gantry/v1/auth_pb";
 
 /** Typed client for the live telemetry (streaming) service. */
 export type LiveClient = Client<typeof LiveService>;
@@ -22,6 +23,30 @@ export type QueryClient = Client<typeof QueryService>;
 export type HardwareClient = Client<typeof HardwareService>;
 /** Typed client for the workspace (saved bench layout) service. */
 export type WorkspaceClient = Client<typeof WorkspaceService>;
+/** Typed client for the access-token (bench credential) service. */
+export type TokenClient = Client<typeof TokenService>;
+
+/**
+ * A Connect interceptor that attaches `Authorization: Bearer <token>` to every
+ * outgoing RPC when `getToken()` yields a non-empty value.
+ *
+ * The token is pulled through a getter (not captured) so the app can swap the
+ * credential without re-creating transports/clients — the next request reads
+ * the current value. A missing/empty token sends no header, which is exactly
+ * what a trusted localhost caller wants (the Bench never challenges loopback).
+ *
+ * Kept app-state-free on purpose: the api-client package holds no console
+ * state; the consumer supplies the getter (see apps/web auth module).
+ */
+export function bearerInterceptor(
+  getToken: () => string | null | undefined,
+): Interceptor {
+  return (next) => (req) => {
+    const token = getToken();
+    if (token) req.header.set("Authorization", "Bearer " + token);
+    return next(req);
+  };
+}
 
 /**
  * Extra transport options, minus `baseUrl` which is passed positionally.
@@ -107,4 +132,19 @@ export function createWorkspaceClient(
   options: ClientOptions = {},
 ): WorkspaceClient {
   return createClient(WorkspaceService, createConnectTransport({ baseUrl, ...options }));
+}
+
+/**
+ * Create a typed TokenService client bound to `baseUrl`.
+ *
+ * Same origin/base contract as {@link createLiveClient}: Connect appends the
+ * `/gantry.v1.TokenService/...` RPC path. Serves the Settings → Access tokens
+ * page (list/create/revoke). Managing tokens requires loopback OR the `admin`
+ * scope; the server enforces that and returns PermissionDenied otherwise.
+ */
+export function createTokenClient(
+  baseUrl: string,
+  options: ClientOptions = {},
+): TokenClient {
+  return createClient(TokenService, createConnectTransport({ baseUrl, ...options }));
 }

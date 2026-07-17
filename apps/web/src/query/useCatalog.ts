@@ -6,6 +6,7 @@ import {
   type DeviceChannels,
 } from "@gantry/api-client";
 import { resolveBaseUrl } from "../config";
+import { apiClientOptions } from "../auth/authGate";
 import { channelLabel, infoKey } from "../channel";
 import { buildCatalogIndex, type CatalogIndex } from "../workspace/layout";
 import type { ChannelOption } from "../scene3dControls";
@@ -42,7 +43,7 @@ export function useCatalog(): CatalogResult {
   const query = useQuery({
     queryKey: ["catalog"],
     queryFn: async ({ signal }) => {
-      const client = createLiveClient(baseUrl);
+      const client = createLiveClient(baseUrl, apiClientOptions());
       const res = await client.listChannels({ deviceId: "" }, { signal });
       return res.devices;
     },

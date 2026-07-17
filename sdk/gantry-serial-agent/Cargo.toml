@@ -28,7 +28,7 @@ gantry-edge-http = { path = "../gantry-edge-http", version = "0.1.0" }
 # Serial port I/O (blocking, cross-platform; a COM port on Windows).
 serialport = "4"
 # Lean CLI.
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env"] }
 
 [dev-dependencies]
 # Synthesize a real device session in-process for the translation-core tests.

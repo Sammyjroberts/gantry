@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Sammyjroberts/gantry/apps/bench/internal/ui"
+	"github.com/Sammyjroberts/gantry/core/go/auth"
 	"github.com/Sammyjroberts/gantry/core/go/benchdb"
 	"github.com/Sammyjroberts/gantry/core/go/blob"
 	"github.com/Sammyjroberts/gantry/core/go/experiments"
@@ -40,10 +41,30 @@ type App struct {
 	srv         *http.Server
 }
 
+// Option configures optional server behavior (functional-options so existing
+// callers and tests keep the two-arg New).
+type Option func(*options)
+
+type options struct {
+	requireAuth bool
+}
+
+// WithRequireAuth forces the bearer-token path even for loopback callers
+// (paranoid mode). Off by default: localhost is fully trusted (plug-in-and-go).
+// The bench binary exposes this as -require-auth; tests use it to exercise the
+// token/denial paths without binding a non-loopback socket.
+func WithRequireAuth(v bool) Option {
+	return func(o *options) { o.requireAuth = v }
+}
+
 // New builds an Bench app with an embedded NATS server storing JetStream data in
 // storeDir, provisions the TLM stream, and opens (migrating on first boot) the
 // persistent SQLite store at <storeDir>/bench.db.
-func New(ctx context.Context, storeDir string) (*App, error) {
+func New(ctx context.Context, storeDir string, opts ...Option) (*App, error) {
+	var cfg options
+	for _, o := range opts {
+		o(&cfg)
+	}
 	bus, err := stream.NewEmbedded(storeDir)
 	if err != nil {
 		return nil, err
@@ -111,12 +132,19 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	// experiments/hardware.
 	wsSvc := workspace.NewService(db)
 	wsPath, wsHandler := gantryv1connect.NewWorkspaceServiceHandler(workspace.NewHandler(wsSvc))
+	// Access tokens: named, scoped bearer credentials for non-loopback callers.
+	// The Service and the middleware Verifier share ONE Store so the last-used
+	// throttle and clock are consistent across creation and verification.
+	authStore := auth.NewStore(db)
+	authSvc := auth.NewServiceWithStore(authStore)
+	tokPath, tokHandler := gantryv1connect.NewTokenServiceHandler(auth.NewHandler(authSvc))
 	mux.Handle(ingestPath, ingestHandler)
 	mux.Handle(livePath, liveHandler)
 	mux.Handle(expPath, expHandler)
 	mux.Handle(queryPath, queryHandler)
 	mux.Handle(hwPath, hwHandler)
 	mux.Handle(wsPath, wsHandler)
+	mux.Handle(tokPath, tokHandler)
 
 	// Chunked video catalog + per-device model files (plain HTTP; see the
 	// register funcs for the URL surface). SQL over the segment store when a
@@ -156,9 +184,16 @@ func New(ctx context.Context, storeDir string) (*App, error) {
 	}
 	mux.Handle("/", spa)
 
+	// Auth guards every network surface. CORS is OUTERMOST so that (a) a browser
+	// preflight OPTIONS is answered without a token, and (b) 401/403 responses
+	// still carry CORS headers a cross-origin dev client needs to READ the status
+	// and show the "connect to bench" prompt. Loopback callers are fully trusted
+	// unless -require-auth is set. SPA/static routes are open (see auth.RequiredScope).
+	authed := auth.Middleware(authStore, cfg.requireAuth, mux)
+
 	// h2c so gRPC clients work over cleartext HTTP/2; Connect + gRPC-Web over
 	// HTTP/1.1 continue to work too.
-	handler := withCORS(mux)
+	handler := withCORS(authed)
 	h2s := &http2.Server{}
 	handler = h2c.NewHandler(handler, h2s)
 

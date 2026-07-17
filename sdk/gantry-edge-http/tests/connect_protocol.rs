@@ -16,6 +16,7 @@ use gantry_edge_proto::v1::{
 struct Observed {
     method_path: String,
     content_type: String,
+    authorization: String,
     body: Vec<u8>,
 }
 
@@ -35,12 +36,19 @@ fn spawn_server(status: u16, response_body: Vec<u8>) -> (String, mpsc::Receiver<
                 .find(|h| h.field.equiv("Content-Type"))
                 .map(|h| h.value.as_str().to_string())
                 .unwrap_or_default();
+            let authorization = request
+                .headers()
+                .iter()
+                .find(|h| h.field.equiv("Authorization"))
+                .map(|h| h.value.as_str().to_string())
+                .unwrap_or_default();
             let mut body = Vec::new();
             request.as_reader().read_to_end(&mut body).unwrap();
 
             tx.send(Observed {
                 method_path,
                 content_type,
+                authorization,
                 body,
             })
             .unwrap();
@@ -110,6 +118,38 @@ fn publish_sends_valid_connect_request_and_reads_ack() {
     assert_eq!(batch.sequence, 7);
     assert_eq!(batch.frames.len(), 1);
     assert_eq!(batch.frames[0].channel, "drive.motor_left.current_a");
+}
+
+#[test]
+fn bearer_token_is_attached_as_authorization_header() {
+    let resp = PublishBatchResponse { acked_sequence: 1 };
+    let (base_url, rx) = spawn_server(200, resp.encode_to_vec());
+
+    let transport = HttpTransport::builder(base_url)
+        .bearer_token("gtk_1234abcd_secret")
+        .build();
+    transport.publish(sample_batch()).expect("publish ok");
+
+    let observed = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(
+        observed.authorization, "Bearer gtk_1234abcd_secret",
+        "bearer token must be sent as an Authorization header"
+    );
+}
+
+#[test]
+fn no_token_sends_no_authorization_header() {
+    let resp = PublishBatchResponse { acked_sequence: 1 };
+    let (base_url, rx) = spawn_server(200, resp.encode_to_vec());
+
+    let transport = HttpTransport::new(base_url);
+    transport.publish(sample_batch()).expect("publish ok");
+
+    let observed = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(
+        observed.authorization, "",
+        "a loopback transport must not send an Authorization header"
+    );
 }
 
 #[test]

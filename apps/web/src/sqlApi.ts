@@ -12,6 +12,8 @@
  */
 
 import type { SqlResponse } from "./sql";
+import { authHeaders } from "./auth/token";
+import { reportFetchStatus } from "./auth/authGate";
 
 /** An error from POST /sql carrying the HTTP status and server message. */
 export class SqlError extends Error {
@@ -40,7 +42,7 @@ export async function runSql(
   try {
     res = await fetch(`${trimBase(baseUrl)}/sql`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...authHeaders() },
       body: JSON.stringify({ sql }),
       signal,
     });
@@ -48,6 +50,7 @@ export async function runSql(
     throw new SqlError(0, err instanceof Error ? err.message : String(err));
   }
   if (!res.ok) {
+    reportFetchStatus(res.status); // 401 → flip the auth gate (remote bench only)
     const text = (await res.text().catch(() => "")).trim();
     throw new SqlError(res.status, text || `HTTP ${res.status}`);
   }

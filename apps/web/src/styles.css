@@ -2309,3 +2309,52 @@ body {
 .hw-model-file { color: var(--muted); }
 .hw-model-hint { margin-top: 6px; font-size: 10px; color: var(--muted); line-height: 1.5; }
 .hw-scene-host { position: relative; height: 520px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+
+/* ---- nav: settings link sits apart from the four main pages ---- */
+.nav-link--settings { margin: 0 6px 6px; border-top: 1px solid var(--border); padding-top: 12px; border-radius: 0 0 4px 4px; }
+
+/* ---- "connect to bench" prompt (remote callers only; localhost never sees it) ---- */
+.auth-overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(11, 14, 17, 0.86); backdrop-filter: blur(2px); }
+.auth-card { width: 340px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); }
+.auth-card-head { display: flex; align-items: center; gap: 8px; }
+.auth-card-icon { color: var(--accent); }
+.auth-card-title { font-weight: 600; letter-spacing: 0.04em; }
+.auth-card-sub { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.6; }
+.auth-input { background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 13px; padding: 8px 10px; }
+.auth-input:focus { outline: none; border-color: var(--accent); }
+.auth-connect { background: rgba(79, 209, 197, 0.12); color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 8px 12px; cursor: pointer; font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.auth-connect:disabled { opacity: 0.5; cursor: default; }
+
+/* ---- settings → access tokens ---- */
+.settings-section-head { display: flex; align-items: center; justify-content: space-between; }
+.settings-hint { margin: 0 0 14px; font-size: 11px; color: var(--muted); line-height: 1.6; max-width: 640px; }
+.tok-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 5px 10px; cursor: pointer; font-family: var(--mono); font-size: 12px; }
+.tok-btn:hover { border-color: var(--accent); }
+.tok-btn:disabled { opacity: 0.6; cursor: default; }
+.tok-btn--accent { background: rgba(79, 209, 197, 0.12); color: var(--accent); border-color: var(--accent); }
+.tok-btn--danger { background: rgba(229, 72, 77, 0.12); color: var(--danger); border-color: var(--danger); }
+.tok-icon-btn { display: inline-flex; background: transparent; border: 1px solid transparent; border-radius: 3px; color: var(--muted); padding: 4px; cursor: pointer; }
+.tok-icon-btn:hover { color: var(--text); border-color: var(--border); }
+.tok-icon-btn--danger:hover { color: var(--danger); border-color: var(--danger); }
+
+.tok-secret { background: var(--panel); border: 1px solid var(--warn); border-radius: 6px; padding: 14px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px; }
+.tok-secret-head { display: flex; align-items: center; justify-content: space-between; color: var(--warn); font-size: 12px; }
+.tok-secret-value { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; color: var(--accent); font-size: 12px; word-break: break-all; user-select: all; }
+
+.tok-form { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 14px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px; max-width: 640px; }
+.tok-input { background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 13px; padding: 8px 10px; }
+.tok-input:focus { outline: none; border-color: var(--accent); }
+.tok-scopes { display: flex; flex-direction: column; gap: 6px; }
+.tok-scope { display: grid; grid-template-columns: 16px 72px 1fr; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; }
+.tok-scope-name { color: var(--text); font-size: 12px; }
+.tok-scope-desc { color: var(--muted); font-size: 11px; }
+.tok-form-actions { display: flex; gap: 8px; }
+
+.tok-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.tok-table th { text-align: left; color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.tok-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.tok-name { font-weight: 600; color: var(--text); }
+.tok-time { color: var(--muted); }
+.tok-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.tok-chip { font-size: 10px; padding: 2px 7px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); color: var(--accent); letter-spacing: 0.04em; }
+.tok-row-actions { display: flex; gap: 6px; justify-content: flex-end; }

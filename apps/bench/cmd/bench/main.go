@@ -23,6 +23,10 @@ func main() {
 		port     = flag.Int("port", 4780, "HTTP port to serve on")
 		dataDir  = flag.String("data-dir", filepath.Join(".", "data", "bench"), "JetStream data directory")
 		shutWait = flag.Duration("shutdown-timeout", 10*time.Second, "graceful shutdown timeout")
+		// requireAuth forces the bearer-token path even for loopback callers. Off
+		// by default so localhost stays plug-in-and-go; turn it on to require a
+		// token from every client (e.g. a shared/HIL bench, or to test denial).
+		requireAuth = flag.Bool("require-auth", false, "require a bearer token even from localhost (default: localhost is fully trusted)")
 	)
 	flag.Parse()
 
@@ -35,9 +39,12 @@ func main() {
 	}
 
 	ctx := context.Background()
-	app, err := server.New(ctx, *dataDir)
+	app, err := server.New(ctx, *dataDir, server.WithRequireAuth(*requireAuth))
 	if err != nil {
 		log.Fatalf("bench: start: %v", err)
+	}
+	if *requireAuth {
+		log.Printf("bench: -require-auth set; all clients (including localhost) must present a bearer token")
 	}
 
 	addr := net.JoinHostPort("", strconv.Itoa(*port))

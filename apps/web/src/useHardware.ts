@@ -6,6 +6,7 @@ import {
   type Hardware,
   type HardwareClient,
 } from "@gantry/api-client";
+import { apiClientOptions } from "./auth/authGate";
 import type { PoseBindings } from "./pose";
 import {
   clearLegacyBindings,
@@ -86,11 +87,11 @@ export function useHardware(args: UseHardwareArgs): UseHardwareResult {
   const [error, setError] = useState<string | null>(null);
 
   const clientRef = useRef<HardwareClient | null>(null);
-  if (clientRef.current === null) clientRef.current = createHardwareClient(baseUrl);
+  if (clientRef.current === null) clientRef.current = createHardwareClient(baseUrl, apiClientOptions());
   const baseUrlRef = useRef(baseUrl);
   if (baseUrlRef.current !== baseUrl) {
     baseUrlRef.current = baseUrl;
-    clientRef.current = createHardwareClient(baseUrl);
+    clientRef.current = createHardwareClient(baseUrl, apiClientOptions());
   }
 
   const byId = useMemo(() => {

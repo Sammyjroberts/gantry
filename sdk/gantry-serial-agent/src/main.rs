@@ -51,6 +51,12 @@ struct Cli {
     #[arg(long, default_value = "http://localhost:4780")]
     endpoint: String,
 
+    /// Bearer token for a non-loopback Bench (required unless the endpoint is
+    /// localhost, which is trusted). Falls back to the GANTRY_TOKEN env var so a
+    /// token need not appear in the process args / shell history.
+    #[arg(long, env = "GANTRY_TOKEN")]
+    token: Option<String>,
+
     /// While reading the port, append the raw bytes to this spool file (byte-identical).
     #[arg(long)]
     tee_file: Option<PathBuf>,
@@ -77,7 +83,11 @@ fn main() -> ExitCode {
 }
 
 fn run(cli: Cli) -> Result<(), String> {
-    let transport = HttpTransport::new(cli.endpoint.clone());
+    let mut builder = HttpTransport::builder(cli.endpoint.clone());
+    if let Some(token) = cli.token.as_ref().filter(|t| !t.trim().is_empty()) {
+        builder = builder.bearer_token(token.trim());
+    }
+    let transport = builder.build();
 
     if let Some(path) = cli.from_file.as_ref() {
         run_file(&cli, path, transport)

@@ -14,6 +14,8 @@
  */
 
 import type { VideoChunk } from "./videoSync";
+import { authHeaders, withToken } from "./auth/token";
+import { reportFetchStatus } from "./auth/authGate";
 
 /** Camera as advertised by GET /video/cameras. */
 export interface ServerCamera {
@@ -30,9 +32,17 @@ function nsParam(ns: number): string {
   return Math.round(ns).toString();
 }
 
-/** Absolute URL for a single chunk's bytes (GET), tolerant of pruning (404). */
+/**
+ * Absolute URL for a single chunk's bytes (GET), tolerant of pruning (404).
+ *
+ * Carries the token as `?token=` because this URL is consumed as a `<video src>`
+ * (see useVideoReplay) that cannot set an Authorization header. /video/ GETs are
+ * one of the two read-scoped routes the server accepts a query token on. No
+ * token ⇒ unchanged (localhost). Header-capable fetches (useVideoFollow) get the
+ * token this way too — harmless and consistent.
+ */
 export function chunkUrl(baseUrl: string, id: string): string {
-  return `${trimBase(baseUrl)}/video/chunks/${encodeURIComponent(id)}`;
+  return withToken(`${trimBase(baseUrl)}/video/chunks/${encodeURIComponent(id)}`);
 }
 
 interface WireChunk {
@@ -80,11 +90,14 @@ export async function uploadChunk(
   });
   const res = await fetch(`${trimBase(baseUrl)}/video/chunks?${qs.toString()}`, {
     method: "POST",
-    headers: { "content-type": args.blob.type || "video/webm" },
+    headers: { "content-type": args.blob.type || "video/webm", ...authHeaders() },
     body: args.blob,
     signal,
   });
-  if (!res.ok) throw new Error(`upload chunk: HTTP ${res.status}`);
+  if (!res.ok) {
+    reportFetchStatus(res.status);
+    throw new Error(`upload chunk: HTTP ${res.status}`);
+  }
   const body = (await res.json()) as { id?: string };
   return body.id ?? "";
 }
@@ -106,8 +119,14 @@ export async function listChunks(
     from_ns: nsParam(args.fromNs),
     to_ns: nsParam(args.toNs),
   });
-  const res = await fetch(`${trimBase(baseUrl)}/video/chunks?${qs.toString()}`, { signal });
-  if (!res.ok) throw new Error(`list chunks: HTTP ${res.status}`);
+  const res = await fetch(`${trimBase(baseUrl)}/video/chunks?${qs.toString()}`, {
+    headers: authHeaders(),
+    signal,
+  });
+  if (!res.ok) {
+    reportFetchStatus(res.status);
+    throw new Error(`list chunks: HTTP ${res.status}`);
+  }
   const body = (await res.json()) as { chunks?: WireChunk[] };
   return (body.chunks ?? []).map(toChunk);
 }
@@ -117,8 +136,11 @@ export async function listServerCameras(
   baseUrl: string,
   signal?: AbortSignal,
 ): Promise<ServerCamera[]> {
-  const res = await fetch(`${trimBase(baseUrl)}/video/cameras`, { signal });
-  if (!res.ok) throw new Error(`list cameras: HTTP ${res.status}`);
+  const res = await fetch(`${trimBase(baseUrl)}/video/cameras`, { headers: authHeaders(), signal });
+  if (!res.ok) {
+    reportFetchStatus(res.status);
+    throw new Error(`list cameras: HTTP ${res.status}`);
+  }
   const body = (await res.json()) as {
     cameras?: Array<{ camera_id: string; latest_start_ns: number }>;
   };

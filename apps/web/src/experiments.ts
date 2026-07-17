@@ -1,4 +1,5 @@
 import type { Experiment } from "@gantry/api-client";
+import { withToken } from "./auth/token";
 
 /**
  * Pure experiment helpers — name/duration formatting, running-region math, and
@@ -109,5 +110,8 @@ export function experimentCsvHref(
   const url = new URL(`${base}/export/experiments/${encodeURIComponent(id)}.csv`);
   if (channels.length > 0) url.searchParams.set("channels", channels.join(","));
   if (format) url.searchParams.set("format", format);
-  return url.toString();
+  // This is an `<a download>` href (can't set an Authorization header), and
+  // /export/ GETs are one of the two routes the server accepts a query token on.
+  // No token ⇒ unchanged (localhost). See auth/token.ts::withToken.
+  return withToken(url.toString());
 }

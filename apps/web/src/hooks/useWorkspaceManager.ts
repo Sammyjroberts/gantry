@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createWorkspaceClient, type Workspace } from "@gantry/api-client";
 import { resolveBaseUrl } from "../config";
+import { apiClientOptions } from "../auth/authGate";
 import {
   useWorkspaceList,
   useUpsertWorkspace,
@@ -49,7 +50,7 @@ function seedChannelsFromCatalog(catalog: CatalogResult): SeedChannel[] {
 
 export function useWorkspaceManager(catalog: CatalogResult): WorkspaceManager {
   const baseUrl = useMemo(resolveBaseUrl, []);
-  const client = useMemo(() => createWorkspaceClient(baseUrl), [baseUrl]);
+  const client = useMemo(() => createWorkspaceClient(baseUrl, apiClientOptions()), [baseUrl]);
   const listQuery = useWorkspaceList();
   const upsert = useUpsertWorkspace();
   const del = useDeleteWorkspace();

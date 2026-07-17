@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Sammyjroberts/gantry/core/go/auth"
 	gantryv1 "github.com/Sammyjroberts/gantry/gen/go/gantry/v1"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -62,7 +63,10 @@ type startExperimentArgs struct {
 	DeviceID string `json:"device_id,omitempty" jsonschema:"optional device id to scope the experiment to; omit for bench-wide (all devices)"`
 }
 
-func (d Deps) startExperiment(ctx context.Context, _ *mcpsdk.CallToolRequest, args startExperimentArgs) (*mcpsdk.CallToolResult, experimentResult, error) {
+func (d Deps) startExperiment(ctx context.Context, req *mcpsdk.CallToolRequest, args startExperimentArgs) (*mcpsdk.CallToolResult, experimentResult, error) {
+	if err := requireToolScope(req, auth.ScopeOperate); err != nil {
+		return nil, experimentResult{}, err
+	}
 	if args.Name == "" {
 		return nil, experimentResult{}, fmt.Errorf("name is required")
 	}
@@ -79,7 +83,10 @@ type stopExperimentArgs struct {
 	ID string `json:"id" jsonschema:"id of the running experiment to stop (from start_experiment or list_experiments)"`
 }
 
-func (d Deps) stopExperiment(ctx context.Context, _ *mcpsdk.CallToolRequest, args stopExperimentArgs) (*mcpsdk.CallToolResult, experimentResult, error) {
+func (d Deps) stopExperiment(ctx context.Context, req *mcpsdk.CallToolRequest, args stopExperimentArgs) (*mcpsdk.CallToolResult, experimentResult, error) {
+	if err := requireToolScope(req, auth.ScopeOperate); err != nil {
+		return nil, experimentResult{}, err
+	}
 	if args.ID == "" {
 		return nil, experimentResult{}, fmt.Errorf("id is required")
 	}

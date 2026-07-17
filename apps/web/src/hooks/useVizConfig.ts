@@ -6,6 +6,7 @@ import {
   type HardwareClient,
 } from "@gantry/api-client";
 import { resolveBaseUrl } from "../config";
+import { apiClientOptions } from "../auth/authGate";
 import type { PoseBindings } from "../pose";
 import {
   clearLegacyBindings,
@@ -25,7 +26,7 @@ import {
 export function useVizConfig() {
   const baseUrl = useMemo(resolveBaseUrl, []);
   const clientRef = useRef<HardwareClient | null>(null);
-  if (clientRef.current === null) clientRef.current = createHardwareClient(baseUrl);
+  if (clientRef.current === null) clientRef.current = createHardwareClient(baseUrl, apiClientOptions());
 
   const saveVizConfig = useCallback(
     async (device: string, bindings: PoseBindings): Promise<void> => {

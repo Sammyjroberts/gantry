@@ -10,6 +10,9 @@
  * share one source of truth for URLs.
  */
 
+import { authHeaders } from "./auth/token";
+import { reportFetchStatus } from "./auth/authGate";
+
 /** Absolute URL for a model file (or the listing when `name` is omitted). */
 export function modelUrl(baseUrl: string, name?: string): string {
   const base = baseUrl.replace(/\/$/, "");
@@ -18,8 +21,11 @@ export function modelUrl(baseUrl: string, name?: string): string {
 
 /** List available model file names. Returns `[]` on a missing/empty directory. */
 export async function listModels(baseUrl: string, signal?: AbortSignal): Promise<string[]> {
-  const res = await fetch(modelUrl(baseUrl), { signal });
-  if (!res.ok) throw new Error(`list models: HTTP ${res.status}`);
+  const res = await fetch(modelUrl(baseUrl), { headers: authHeaders(), signal });
+  if (!res.ok) {
+    reportFetchStatus(res.status);
+    throw new Error(`list models: HTTP ${res.status}`);
+  }
   const body = (await res.json()) as { files?: unknown };
   if (!body || !Array.isArray(body.files)) return [];
   return body.files.filter((f): f is string => typeof f === "string");
@@ -31,8 +37,11 @@ export async function loadModelText(
   name: string,
   signal?: AbortSignal,
 ): Promise<string> {
-  const res = await fetch(modelUrl(baseUrl, name), { signal });
-  if (!res.ok) throw new Error(`load ${name}: HTTP ${res.status}`);
+  const res = await fetch(modelUrl(baseUrl, name), { headers: authHeaders(), signal });
+  if (!res.ok) {
+    reportFetchStatus(res.status);
+    throw new Error(`load ${name}: HTTP ${res.status}`);
+  }
   return res.text();
 }
 
@@ -45,9 +54,12 @@ export async function saveModelText(
 ): Promise<void> {
   const res = await fetch(modelUrl(baseUrl, name), {
     method: "PUT",
-    headers: { "content-type": "application/xml" },
+    headers: { "content-type": "application/xml", ...authHeaders() },
     body: text,
     signal,
   });
-  if (!res.ok) throw new Error(`save ${name}: HTTP ${res.status}`);
+  if (!res.ok) {
+    reportFetchStatus(res.status);
+    throw new Error(`save ${name}: HTTP ${res.status}`);
+  }
 }
