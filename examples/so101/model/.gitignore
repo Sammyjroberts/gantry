@@ -1,0 +1,4 @@
+# so101_setup.py caches verified meshes here (default --cache-dir is
+# examples/so101/.cache). Never commit the ~16 MB of downloaded STLs — they are
+# fetched + sha256-verified from the pinned upstream at setup time.
+/.cache/

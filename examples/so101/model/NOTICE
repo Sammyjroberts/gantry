@@ -1,0 +1,29 @@
+SO-101 3D model assets
+======================
+
+The robot model shipped by this example (examples/so101/model/so101.urdf and
+the STL meshes fetched at setup time by so101_setup.py) is derived from:
+
+    The Robot Studio — SO-ARM100 / SO-101
+    https://github.com/TheRobotStudio/SO-ARM100
+    Pinned commit: fda892cba81032c46c40976a48c9ceadbf40a9ca
+    Path:          Simulation/SO101/
+    License:       Apache License 2.0
+
+The URDF committed here (so101.urdf) is the upstream so101_new_calib.urdf with a
+single mechanical change: every <mesh> reference was flattened from the upstream
+"assets/<file>.stl" subdirectory path to a bare sibling "<file>.stl" name, so the
+references resolve against Gantry's flat /models/ store. No geometry, joints,
+limits, or inertials were altered.
+
+The STL meshes are NOT redistributed in this repository. so101_setup.py downloads
+each one directly from the pinned upstream commit and verifies its SHA-256 against
+MANIFEST.json before uploading it to your bench.
+
+Apache-2.0 requires that this attribution and the upstream license accompany
+redistribution. The full license text is available at:
+
+    https://github.com/TheRobotStudio/SO-ARM100/blob/fda892cba81032c46c40976a48c9ceadbf40a9ca/LICENSE
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Original model generated with onshape-to-robot.

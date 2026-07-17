@@ -1,44 +1,69 @@
 #!/usr/bin/env python3
-"""SO-101 -> Gantry bridge built on LeRobot's own device stack.
+"""LeRobot backend for the SO-101 -> Gantry bridge.
 
-Prefer this over so101_bridge.py when you already use LeRobot: you inherit
-their serial handling AND your saved calibration, so positions arrive as real
-calibrated degrees (gripper as 0-100%) instead of raw-center approximations.
+This is a thin module now: the CLI lives in so101_bridge.py, which auto-selects
+this backend whenever `import lerobot` succeeds.  Driving the arms through
+LeRobot's own device stack means you inherit their serial handling AND your
+saved calibration, so positions arrive as real calibrated degrees (gripper as
+0-100 %) instead of the raw path's raw-center approximation.
 
     pip install lerobot pyserial
-    python so101_lerobot_bridge.py --leader-port COM4 --follower-port COM5 \
-        --leader-id my_leader --follower-id my_follower
+    python so101_bridge.py --use-lerobot --leader-id my_leader --follower-id my_follower
 
-The --*-id values are the LeRobot ids you calibrated with (they select the
-calibration file). Telemetry lands identically to so101_bridge.py: devices
-so101-leader / so101-follower, one packet per joint, pos (deg / % for
-gripper) at the poll rate plus temp_c / voltage_v / load at ~2 Hz.
+Running this file directly still works -- it just forces the lerobot backend and
+hands off to so101_bridge.main().
 
-LeRobot's internal APIs move between releases; the imports below match the
-2026-era layout (lerobot.robots.so_follower / lerobot.teleoperators.so_leader)
-with fallbacks. If an import fails, run so101_bridge.py instead — it needs
-only pyserial.
+LeRobot's internal layout moves between releases.  Verified against 2026-era
+`main`: the follower is lerobot.robots.so_follower.SOFollower with config
+SOFollowerRobotConfig; the leader is lerobot.teleoperators.so_leader.SOLeader
+with config SOLeaderTeleopConfig; both expose `.bus` (a FeetechMotorsBus),
+connect(calibrate=True), and return positions keyed "<joint>.pos".  Imports fall
+back to the SO101* aliases and older module names; if none resolve, run
+`python so101_bridge.py --no-lerobot` for the pyserial-only path.
 """
 
-import argparse
-import time
+from __future__ import annotations
 
-from so101_bridge import GantryPublisher, JOINTS  # reuse the HTTP publisher
+import importlib.util
+import sys
 
-JOINT_NAMES = list(JOINTS.values())
+from so101_bridge import JOINT_NAMES  # reuse the joint set
+
+
+def lerobot_available() -> bool:
+    """True if the lerobot package can be imported (checked without importing
+    its heavy submodules)."""
+    try:
+        return importlib.util.find_spec("lerobot") is not None
+    except (ImportError, ValueError):
+        return False
 
 
 def _imports():
-    """Resolve LeRobot classes across recent layouts."""
+    """Resolve LeRobot classes across recent layouts.
+
+    Ground truth (huggingface/lerobot main): directories are so_follower /
+    so_leader; config classes are SOFollowerRobotConfig / SOLeaderTeleopConfig
+    (the SO101* names are aliases).  We try the canonical names first, then the
+    aliases, then the older so101_* module paths.
+    """
+    # follower
     try:
         from lerobot.robots.so_follower import SOFollower
-        from lerobot.robots.so_follower.config_so_follower import SOFollowerConfig as FollowerCfg
+        try:
+            from lerobot.robots.so_follower.config_so_follower import SOFollowerRobotConfig as FollowerCfg
+        except ImportError:
+            from lerobot.robots.so_follower import SO101FollowerConfig as FollowerCfg  # type: ignore
     except ImportError:  # older layout
         from lerobot.robots.so101_follower import SO101Follower as SOFollower  # type: ignore
         from lerobot.robots.so101_follower import SO101FollowerConfig as FollowerCfg  # type: ignore
+    # leader
     try:
         from lerobot.teleoperators.so_leader import SOLeader
-        from lerobot.teleoperators.so_leader.config_so_leader import SOLeaderTeleopConfig as LeaderCfg
+        try:
+            from lerobot.teleoperators.so_leader.config_so_leader import SOLeaderTeleopConfig as LeaderCfg
+        except ImportError:
+            from lerobot.teleoperators.so_leader import SO101LeaderConfig as LeaderCfg  # type: ignore
     except ImportError:
         from lerobot.teleoperators.so101_leader import SO101Leader as SOLeader  # type: ignore
         from lerobot.teleoperators.so101_leader import SO101LeaderConfig as LeaderCfg  # type: ignore
@@ -46,7 +71,8 @@ def _imports():
 
 
 def _make_cfg(cfg_cls, port: str, dev_id: str):
-    """Config dataclasses differ slightly across versions; try the rich form first."""
+    """Config dataclasses differ slightly across versions; try the rich form
+    first (use_degrees defaults to True upstream, but we pass it explicitly)."""
     for kwargs in (
         {"port": port, "id": dev_id, "use_degrees": True},
         {"port": port, "id": dev_id},
@@ -56,96 +82,90 @@ def _make_cfg(cfg_cls, port: str, dev_id: str):
             return cfg_cls(**kwargs)
         except TypeError:
             continue
-    raise SystemExit(f"could not construct {cfg_cls.__name__} — check your lerobot version")
+    raise SystemExit(f"could not construct {cfg_cls.__name__} -- check your lerobot version")
 
 
-def _pos_unit(joint: str) -> str:
-    return "%" if joint == "gripper" else "deg"
+# Health registers: register-name strings verified against feetech/tables.py.
+# sync_read normalize is a no-op for these (only Present/Goal_Position
+# normalize), so values come back raw and we scale them ourselves.
+_HEALTH = (
+    ("Present_Temperature", "temp_c", 1.0),
+    ("Present_Voltage", "voltage_v", 0.1),
+    ("Present_Load", "load", 0.1),
+)
 
 
-def _publish_positions(pub: GantryPublisher, values: dict, t_ns: int) -> None:
-    """values: {'shoulder_pan.pos': deg, ...} from get_observation/get_action."""
-    for key, val in values.items():
-        if not key.endswith(".pos"):
-            continue  # skip camera frames etc.
-        joint = key.removesuffix(".pos")
-        if joint in JOINT_NAMES:
-            pub.add(joint, "pos", float(val), t_ns)
+class LerobotBackend:
+    """Adapts an SOFollower / SOLeader to the bridge's backend surface."""
 
+    def __init__(self, role: str, port: str, dev_id: str):
+        if role not in ("leader", "follower"):
+            raise ValueError(role)
+        self.role = role
+        self.port = port
+        self.device_id = dev_id
+        self.dev = None
+        self.bus = None
+        self._read = None
+        self._missing = 0
 
-def _publish_health(pub: GantryPublisher, bus, t_ns: int) -> None:
-    """Best-effort extra registers straight off LeRobot's bus."""
-    for reg, chan, scale in (
-        ("Present_Temperature", "temp_c", 1.0),
-        ("Present_Voltage", "voltage_v", 0.1),
-        ("Present_Load", "load", 0.1),
-    ):
-        try:
-            for joint, raw in bus.sync_read(reg, normalize=False).items():
+    def open(self) -> None:
+        SOFollower, FollowerCfg, SOLeader, LeaderCfg = _imports()
+        if self.role == "follower":
+            self.dev = SOFollower(_make_cfg(FollowerCfg, self.port, self.device_id))
+        else:
+            self.dev = SOLeader(_make_cfg(LeaderCfg, self.port, self.device_id))
+        self.dev.connect(calibrate=True)
+        self.bus = self.dev.bus
+        self._read = self.dev.get_observation if self.role == "follower" else self.dev.get_action
+
+    def read_positions(self) -> dict:
+        vals = self._read()  # {'shoulder_pan.pos': deg, ..., 'cam...': frame}
+        out = {}
+        for key, val in vals.items():
+            if not key.endswith(".pos"):
+                continue  # skip camera frames etc.
+            joint = key[: -len(".pos")]
+            if joint in JOINT_NAMES:
+                out[joint] = float(val)
+        self._missing = len(JOINT_NAMES) - len(out)
+        return out
+
+    def read_health(self):
+        results = []
+        for reg, chan, scale in _HEALTH:
+            try:
+                readings = self.bus.sync_read(reg, normalize=False)
+            except Exception:
+                break  # register set differs on this firmware -- skip health quietly
+            for joint, raw in readings.items():
                 if joint in JOINT_NAMES:
-                    pub.add(joint, chan, float(raw) * scale, t_ns)
-        except Exception:
-            return  # register set differs on this firmware — skip health quietly
+                    results.append((joint, chan, float(raw) * scale))
+        return results
+
+    def missing_count(self) -> int:
+        return self._missing
+
+    def pos_unit(self, joint: str) -> str:
+        return "%" if joint == "gripper" else "deg"
+
+    def close(self) -> None:
+        if self.dev is not None:
+            try:
+                self.dev.disconnect()
+            except Exception:
+                pass
+            self.dev = None
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--leader-port")
-    ap.add_argument("--follower-port")
-    ap.add_argument("--leader-id", default="so101_leader")
-    ap.add_argument("--follower-id", default="so101_follower")
-    ap.add_argument("--endpoint", default="http://localhost:4780")
-    ap.add_argument("--token", default=None)
-    ap.add_argument("--hz", type=float, default=50.0)
-    args = ap.parse_args()
-    if not args.leader_port and not args.follower_port:
-        ap.error("give at least one of --leader-port / --follower-port")
+def main(argv=None) -> int:
+    from so101_bridge import main as bridge_main
 
-    SOFollower, FollowerCfg, SOLeader, LeaderCfg = _imports()
-
-    arms = []  # (publisher, read_positions_fn, bus)
-    if args.follower_port:
-        follower = SOFollower(_make_cfg(FollowerCfg, args.follower_port, args.follower_id))
-        follower.connect(calibrate=True)
-        arms.append((GantryPublisher(args.endpoint, "so101-follower", args.token),
-                     follower.get_observation, follower.bus))
-    if args.leader_port:
-        leader = SOLeader(_make_cfg(LeaderCfg, args.leader_port, args.leader_id))
-        leader.connect(calibrate=True)
-        arms.append((GantryPublisher(args.endpoint, "so101-leader", args.token),
-                     leader.get_action, leader.bus))
-
-    for pub, _, _ in arms:
-        pub.register()
-
-    period = 1.0 / args.hz
-    health_every = max(1, int(args.hz / 2))
-    cycle = 0
-    last_report = time.monotonic()
-    print(f"bridging {[p.device_id for p, _, _ in arms]} -> {args.endpoint} (ctrl-c to stop)")
-    try:
-        while True:
-            start = time.monotonic()
-            t_ns = time.time_ns()
-            for pub, read_positions, bus in arms:
-                _publish_positions(pub, read_positions(), t_ns)
-                if cycle % health_every == 0:
-                    _publish_health(pub, bus, t_ns)
-            if cycle % 5 == 0:
-                for pub, _, _ in arms:
-                    pub.flush()
-            cycle += 1
-            if time.monotonic() - last_report > 5:
-                for pub, _, _ in arms:
-                    print(f"[{pub.device_id}] sent={pub.sent} dropped={pub.dropped}")
-                last_report = time.monotonic()
-            sleep = period - (time.monotonic() - start)
-            if sleep > 0:
-                time.sleep(sleep)
-    except KeyboardInterrupt:
-        for pub, _, _ in arms:
-            pub.flush()
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if "--no-lerobot" not in argv and "--use-lerobot" not in argv:
+        argv.append("--use-lerobot")
+    return bridge_main(argv)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
