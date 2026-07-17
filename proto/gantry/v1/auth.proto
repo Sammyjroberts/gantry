@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package gantry.v1;
+
+// Access tokens: named, scoped machine credentials for reaching a Bench from
+// anywhere that isn't localhost (localhost is always trusted — plug in and
+// go). The secret is returned exactly once at creation and stored only as a
+// hash. Scopes map to route families: "ingest" (publish/register), "read"
+// (query/live/export/MCP reads), "operate" (experiments/workspaces/MCP
+// writes), "admin" (hardware/models/token management).
+service TokenService {
+  // List token metadata. Secrets are never returned here.
+  rpc ListTokens(ListTokensRequest) returns (ListTokensResponse);
+  // Create a token; the response carries the full secret ONCE. Store it —
+  // it cannot be retrieved again.
+  rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse);
+  // Revoke immediately.
+  rpc DeleteToken(DeleteTokenRequest) returns (DeleteTokenResponse);
+}
+
+message TokenInfo {
+  // Stable public identifier (also embedded in the secret for lookup).
+  string id = 1;
+  string name = 2;
+  repeated string scopes = 3;
+  fixed64 created_ns = 4;
+  // 0 = never used.
+  fixed64 last_used_ns = 5;
+}
+
+message ListTokensRequest {}
+
+message ListTokensResponse {
+  repeated TokenInfo tokens = 1;
+}
+
+message CreateTokenRequest {
+  string name = 1;
+  repeated string scopes = 2;
+}
+
+message CreateTokenResponse {
+  TokenInfo token = 1;
+  // The full bearer secret, shown exactly once.
+  string secret = 2;
+}
+
+message DeleteTokenRequest {
+  string id = 1;
+}
+
+message DeleteTokenResponse {}
