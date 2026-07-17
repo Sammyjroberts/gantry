@@ -32,6 +32,7 @@ jobs:
       rust: ${{ steps.filter.outputs.rust }}
       web: ${{ steps.filter.outputs.web }}
       e2e: ${{ steps.filter.outputs.e2e }}
+      python: ${{ steps.filter.outputs.python }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -74,6 +75,9 @@ jobs:
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
+              - '.github/workflows/ci.yml'
+            python:
+              - 'examples/so101/**'
               - '.github/workflows/ci.yml'
 
   # ---------------------------------------------------------------------------
@@ -267,17 +271,35 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
+  # Python: the SO-101 kit (examples/so101) — protocol codec, pairing, publisher
+  # unit tests. No hardware, no network (fixtures + mocked urlopen).
+  # ---------------------------------------------------------------------------
+  python:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install test deps
+        run: pip install pyserial pytest
+      - name: pytest so101 kit
+        run: python -m pytest examples/so101 -q
+
+  # ---------------------------------------------------------------------------
   # Aggregate gate: a single required check that passes only if no needed job
   # failed. Skipped (unchanged) jobs are OK; failed/cancelled ones are not.
   # ---------------------------------------------------------------------------
   ci:
-    needs: [proto, go, rust, web, e2e]
+    needs: [proto, go, rust, web, e2e, python]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Verify no job failed
         run: |
-          results='${{ needs.proto.result }} ${{ needs.go.result }} ${{ needs.rust.result }} ${{ needs.web.result }} ${{ needs.e2e.result }}'
+          results='${{ needs.proto.result }} ${{ needs.go.result }} ${{ needs.rust.result }} ${{ needs.web.result }} ${{ needs.e2e.result }} ${{ needs.python.result }}'
           echo "job results: $results"
           for r in $results; do
             if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
