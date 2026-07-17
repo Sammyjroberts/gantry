@@ -1,0 +1,343 @@
+syntax = "proto3";
+
+package gantry.v1;
+
+// Evals & release gating: turn a bench into a CI/CD gate. A Suite is a reusable
+// test definition; an EvalRun executes it against a candidate Subject on leased
+// hardware; each attempt is a Trial (which IS an experiment — a bracketed
+// telemetry range, see experiment.proto) scored by one or more Verdicts, each a
+// bundle of Checks across three phases (precondition / during / outcome). Trials
+// roll up into a TrialOutcome whose Disposition drives the success rate a release
+// gate compares against a baseline.
+//
+// This file is the M0 spine: authoring (suites/subjects) + run/trial lifecycle +
+// verdict ingest. Gating (EvaluateGate/PromoteBaseline), the baseline store, and
+// station checkout land in later milestones as additive changes; everything
+// policy-shaped rides as opaque, console-owned versioned JSON so the wire
+// contract stays stable while schemas evolve (cf. hardware.viz_config_json).
+service EvalService {
+  // ---- authoring: suites are the reusable test definitions ----
+  // Create or update a suite (id empty on create; server generates it).
+  rpc UpsertSuite(UpsertSuiteRequest) returns (UpsertSuiteResponse);
+  rpc ListSuites(ListSuitesRequest) returns (ListSuitesResponse);
+  rpc GetSuite(GetSuiteRequest) returns (GetSuiteResponse);
+
+  // ---- subjects: the versioned artifact under test (or a pinned verifier) ----
+  // Register a subject ref (candidate/baseline/verifier). Keyed by digest;
+  // re-registering the same digest is idempotent.
+  rpc RegisterSubject(RegisterSubjectRequest) returns (RegisterSubjectResponse);
+
+  // ---- runs: one execution of a suite against a subject ----
+  // Start a run. idempotency_key (e.g. a CI run id) makes retries re-attach to
+  // the same run instead of starting a second robot session.
+  rpc StartRun(StartRunRequest) returns (StartRunResponse);
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+  // Full run detail including its trials.
+  rpc GetRun(GetRunRequest) returns (GetRunResponse);
+
+  // ---- trials: each trial IS an experiment + a scenario + verdicts ----
+  // Open a trial, starting its underlying experiment. The natural key
+  // (run_id, scenario_id, attempt) makes replay return the same trial.
+  rpc OpenTrial(OpenTrialRequest) returns (OpenTrialResponse);
+  // Close a trial, ending its experiment. Idempotent via the experiment's
+  // end_ns==0 running guard (cf. experiments.Store.SetEnd): closing twice is a
+  // no-op, not an error.
+  rpc CloseTrial(CloseTrialRequest) returns (CloseTrialResponse);
+  // Submit a verifier's verdict for a trial. Upserts on
+  // (trial_id, verifier_id, verifier_version): resubmitting the same verifier
+  // build replaces in place; a new version adds a distinct verdict (enabling
+  // re-grade of stored evidence without re-running the robot).
+  rpc SubmitVerdict(SubmitVerdictRequest) returns (SubmitVerdictResponse);
+}
+
+// Phase of a check: when in a trial's lifecycle it applies.
+enum Phase {
+  PHASE_UNSPECIFIED = 0;
+  // Before the attempt: is the bench staged/reset (blocks placed, arm homed)?
+  // A failed required precondition VOIDs the trial (excluded from the rate) —
+  // it does not count as a policy failure.
+  PHASE_PRECONDITION = 1;
+  // While running: safety/interlock checks (estop, force_max). A breach FAILs
+  // the trial immediately (fail safe).
+  PHASE_DURING = 2;
+  // After the attempt: the success/quality/constraint checks that decide
+  // pass/fail and feed metrics (slot filled, count placed, task time).
+  PHASE_OUTCOME = 3;
+}
+
+// Whether a check yields a boolean or a numeric measurement.
+enum CheckKind {
+  CHECK_KIND_UNSPECIFIED = 0;
+  CHECK_KIND_BOOL = 1;
+  // Numeric: pass is (value op threshold), e.g. task_time_s <= 30.
+  CHECK_KIND_NUMERIC = 2;
+}
+
+// The derived disposition of a trial after its checks are combined.
+enum Disposition {
+  // Not yet scored.
+  DISPOSITION_UNSPECIFIED = 0;
+  // Preconditions not met — excluded from the success denominator.
+  DISPOSITION_VOID = 1;
+  DISPOSITION_PASS = 2;
+  DISPOSITION_FAIL = 3;
+}
+
+// Lifecycle of a run.
+enum RunStatus {
+  RUN_STATUS_UNSPECIFIED = 0;
+  RUN_STATUS_PENDING = 1;
+  RUN_STATUS_RUNNING = 2;
+  // All trials scored; metrics computed; gate not yet evaluated.
+  RUN_STATUS_SCORED = 3;
+  // Gate evaluated (pass/fail recorded).
+  RUN_STATUS_GATED = 4;
+  RUN_STATUS_DONE = 5;
+  RUN_STATUS_FAILED = 6;
+}
+
+// A versioned artifact ref: the candidate/baseline under test, or a pinned
+// verifier build. Content-addressed by digest so results are reproducible.
+message Subject {
+  // "policy" | "firmware" | "config" | "verifier" | ...
+  string kind = 1;
+  string uri = 2;
+  string version = 3;
+  // Content digest — the reproducibility/caching anchor.
+  string digest = 4;
+  string metadata_json = 5;
+}
+
+// One task within a suite.
+message Scenario {
+  string id = 1;
+  string name = 2;
+  // Opaque task params handed to the operator's runner.
+  string params_json = 3;
+  // Attempts to run (e.g. 50).
+  uint32 trial_budget = 4;
+  // Gate is inconclusive below this many PASS+FAIL trials (statistical power).
+  uint32 min_scored = 5;
+}
+
+// A named, reusable test definition.
+message Suite {
+  string id = 1;
+  string name = 2;
+  // What kind of subject this suite tests (matches Subject.kind).
+  string subject_kind = 3;
+  repeated Scenario scenarios = 4;
+  // Verifier bindings: [ { id, kind: telemetry|vision|agent, ... } ].
+  string verifier_config_json = 5;
+  // Check spec: per-check name/phase/required/op/threshold.
+  string checks_json = 6;
+  // How checks roll into a Disposition (all|any|weighted; precedence rules).
+  string combine_json = 7;
+  // Metric definitions: [ { name, from_check|from_disposition|sql } ].
+  string metrics_json = 8;
+  // Gate policy: [ { metric, op, vs_baseline, margin } ].
+  string gate_json = 9;
+  fixed64 created_ns = 10;
+  fixed64 updated_ns = 11;
+}
+
+// A single atomic judgment inside a verdict.
+message Check {
+  // "space_ready" | "slot_a_filled" | "task_time_s".
+  string name = 1;
+  Phase phase = 2;
+  // Does this check gate the trial's disposition?
+  bool required = 3;
+  CheckKind kind = 4;
+  // BOOL result, or the evaluated (value op threshold) for NUMERIC.
+  bool pass = 5;
+  // NUMERIC measurement (e.g. task_time_s = 27.3); unused for BOOL.
+  double value = 6;
+  // NUMERIC comparison: pass iff (value op threshold). e.g. op="<=", threshold=30.
+  string op = 7;
+  double threshold = 8;
+  // Free-form labels, e.g. YOLO classes ["block", "in_slot"].
+  repeated string labels = 9;
+  // Evidence backing the judgment: chunk ids, frame refs, blob keys, urls.
+  repeated string evidence_refs = 10;
+  string detail = 11;
+}
+
+// What a verdict actually graded — recorded so a verdict is re-derivable and
+// old runs are re-gradeable without re-running the robot.
+message ScoredEvidence {
+  repeated string video_chunk_ids = 1;
+  fixed64 range_start_ns = 2;
+  fixed64 range_end_ns = 3;
+}
+
+// One verifier's submission for a trial. A trial carries one verdict per
+// verifier (keyed by verifier_id + verifier_version).
+message Verdict {
+  // Suite-local verifier id, e.g. "topdown-yolo".
+  string verifier_id = 1;
+  // Pinned verifier build version.
+  string verifier_version = 2;
+  // Weights/config digest — the reproducibility anchor for scoring.
+  string verifier_digest = 3;
+  fixed64 scored_ns = 4;
+  ScoredEvidence scored_from = 5;
+  repeated Check checks = 6;
+  string notes = 7;
+}
+
+// The derived roll-up of all a trial's verdict checks under the suite's combine
+// policy.
+message TrialOutcome {
+  Disposition disposition = 1;
+  // Why, e.g. "precondition space_ready failed -> void".
+  string reason = 2;
+  // Extracted per-trial metrics: task_time_s, slots_filled, ...
+  map<string, double> metrics = 3;
+}
+
+// One attempt at one scenario within a run. A trial IS an experiment.
+message Trial {
+  string id = 1;
+  string run_id = 2;
+  string scenario_id = 3;
+  // The bracketed telemetry range backing this trial (see experiment.proto).
+  string experiment_id = 4;
+  // 0..trial_budget-1; part of the natural key (run_id, scenario_id, attempt).
+  uint32 attempt = 5;
+  // Recorded for reproducibility.
+  uint64 seed = 6;
+  // Video evidence captured during the trial window.
+  repeated string video_chunk_ids = 7;
+  // One verdict per verifier.
+  repeated Verdict verdicts = 8;
+  // Derived from the verdicts' checks under the suite combine policy.
+  TrialOutcome outcome = 9;
+  fixed64 started_ns = 10;
+  // 0 while running.
+  fixed64 ended_ns = 11;
+  // Which leased station ran it (per-station outlier detection).
+  string station_id = 12;
+}
+
+// One execution of a suite against a candidate subject.
+message EvalRun {
+  string id = 1;
+  string suite_id = 2;
+  Subject candidate = 3;
+  // The baseline compared against (resolved at gate time; may be empty on M0).
+  Subject baseline = 4;
+  RunStatus status = 5;
+  // Tag selector for the stations this run wants, e.g. "arm=so101,camera=topdown".
+  string target_selector = 6;
+  // Stations to lease for parallelism (0/1 = single).
+  uint32 replicas = 7;
+  // Stations actually leased for the run.
+  repeated string station_ids = 8;
+  fixed64 created_ns = 9;
+  fixed64 started_ns = 10;
+  // 0 while running.
+  fixed64 ended_ns = 11;
+}
+
+// ---- request/response ----
+
+message UpsertSuiteRequest {
+  Suite suite = 1;
+}
+
+message UpsertSuiteResponse {
+  Suite suite = 1;
+}
+
+message ListSuitesRequest {}
+
+message ListSuitesResponse {
+  repeated Suite suites = 1;
+}
+
+message GetSuiteRequest {
+  string id = 1;
+}
+
+message GetSuiteResponse {
+  Suite suite = 1;
+}
+
+message RegisterSubjectRequest {
+  Subject subject = 1;
+}
+
+message RegisterSubjectResponse {
+  Subject subject = 1;
+}
+
+message StartRunRequest {
+  string suite_id = 1;
+  Subject candidate = 2;
+  // Baseline to compare against, e.g. "latest" or a pinned version. Resolved
+  // at gate time in a later milestone.
+  string baseline_ref = 3;
+  string target_selector = 4;
+  uint32 replicas = 5;
+  // Retries with the same key re-attach to the existing run.
+  string idempotency_key = 6;
+}
+
+message StartRunResponse {
+  EvalRun run = 1;
+}
+
+message ListRunsRequest {
+  // Empty = all suites.
+  string suite_id = 1;
+}
+
+message ListRunsResponse {
+  repeated EvalRun runs = 1;
+}
+
+message GetRunRequest {
+  string id = 1;
+}
+
+message GetRunResponse {
+  EvalRun run = 1;
+  repeated Trial trials = 2;
+}
+
+message OpenTrialRequest {
+  string run_id = 1;
+  string scenario_id = 2;
+  // Part of the natural key; replay returns the same trial.
+  uint32 attempt = 3;
+  string station_id = 4;
+  uint64 seed = 5;
+  string idempotency_key = 6;
+}
+
+message OpenTrialResponse {
+  Trial trial = 1;
+}
+
+message CloseTrialRequest {
+  string trial_id = 1;
+  // 0 = now.
+  fixed64 end_ns = 2;
+  // Video chunks captured during the trial (appended to the trial).
+  repeated string video_chunk_ids = 3;
+}
+
+message CloseTrialResponse {
+  Trial trial = 1;
+}
+
+message SubmitVerdictRequest {
+  string trial_id = 1;
+  Verdict verdict = 2;
+  string idempotency_key = 3;
+}
+
+message SubmitVerdictResponse {
+  Trial trial = 1;
+}
