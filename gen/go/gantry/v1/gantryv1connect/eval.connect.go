@@ -55,6 +55,14 @@ const (
 	// EvalServiceSubmitVerdictProcedure is the fully-qualified name of the EvalService's SubmitVerdict
 	// RPC.
 	EvalServiceSubmitVerdictProcedure = "/gantry.v1.EvalService/SubmitVerdict"
+	// EvalServiceEvaluateGateProcedure is the fully-qualified name of the EvalService's EvaluateGate
+	// RPC.
+	EvalServiceEvaluateGateProcedure = "/gantry.v1.EvalService/EvaluateGate"
+	// EvalServicePromoteBaselineProcedure is the fully-qualified name of the EvalService's
+	// PromoteBaseline RPC.
+	EvalServicePromoteBaselineProcedure = "/gantry.v1.EvalService/PromoteBaseline"
+	// EvalServiceGetBaselineProcedure is the fully-qualified name of the EvalService's GetBaseline RPC.
+	EvalServiceGetBaselineProcedure = "/gantry.v1.EvalService/GetBaseline"
 )
 
 // EvalServiceClient is a client for the gantry.v1.EvalService service.
@@ -86,8 +94,19 @@ type EvalServiceClient interface {
 	// Submit a verifier's verdict for a trial. Upserts on
 	// (trial_id, verifier_id, verifier_version): resubmitting the same verifier
 	// build replaces in place; a new version adds a distinct verdict (enabling
-	// re-grade of stored evidence without re-running the robot).
+	// re-grade of stored evidence without re-running the robot). Recomputes the
+	// trial's TrialOutcome from all its verdicts under the suite combine policy.
 	SubmitVerdict(context.Context, *connect.Request[v1.SubmitVerdictRequest]) (*connect.Response[v1.SubmitVerdictResponse], error)
+	// ---- gating: the release decision ----
+	// Aggregate a run's trial outcomes into metrics and compare the candidate
+	// against the baseline for its (suite, class) under the suite gate policy.
+	// Read-only: computes and stores the GateResult on the run without promoting.
+	EvaluateGate(context.Context, *connect.Request[v1.EvaluateGateRequest]) (*connect.Response[v1.EvaluateGateResponse], error)
+	// Promote a passed run's candidate to the baseline for its (suite, class).
+	// Idempotent per run (promoting the same run twice is a no-op).
+	PromoteBaseline(context.Context, *connect.Request[v1.PromoteBaselineRequest]) (*connect.Response[v1.PromoteBaselineResponse], error)
+	// Fetch the current baseline for a (suite, class). class "" = suite-wide.
+	GetBaseline(context.Context, *connect.Request[v1.GetBaselineRequest]) (*connect.Response[v1.GetBaselineResponse], error)
 }
 
 // NewEvalServiceClient constructs a client for the gantry.v1.EvalService service. By default, it
@@ -161,6 +180,24 @@ func NewEvalServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(evalServiceMethods.ByName("SubmitVerdict")),
 			connect.WithClientOptions(opts...),
 		),
+		evaluateGate: connect.NewClient[v1.EvaluateGateRequest, v1.EvaluateGateResponse](
+			httpClient,
+			baseURL+EvalServiceEvaluateGateProcedure,
+			connect.WithSchema(evalServiceMethods.ByName("EvaluateGate")),
+			connect.WithClientOptions(opts...),
+		),
+		promoteBaseline: connect.NewClient[v1.PromoteBaselineRequest, v1.PromoteBaselineResponse](
+			httpClient,
+			baseURL+EvalServicePromoteBaselineProcedure,
+			connect.WithSchema(evalServiceMethods.ByName("PromoteBaseline")),
+			connect.WithClientOptions(opts...),
+		),
+		getBaseline: connect.NewClient[v1.GetBaselineRequest, v1.GetBaselineResponse](
+			httpClient,
+			baseURL+EvalServiceGetBaselineProcedure,
+			connect.WithSchema(evalServiceMethods.ByName("GetBaseline")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -176,6 +213,9 @@ type evalServiceClient struct {
 	openTrial       *connect.Client[v1.OpenTrialRequest, v1.OpenTrialResponse]
 	closeTrial      *connect.Client[v1.CloseTrialRequest, v1.CloseTrialResponse]
 	submitVerdict   *connect.Client[v1.SubmitVerdictRequest, v1.SubmitVerdictResponse]
+	evaluateGate    *connect.Client[v1.EvaluateGateRequest, v1.EvaluateGateResponse]
+	promoteBaseline *connect.Client[v1.PromoteBaselineRequest, v1.PromoteBaselineResponse]
+	getBaseline     *connect.Client[v1.GetBaselineRequest, v1.GetBaselineResponse]
 }
 
 // UpsertSuite calls gantry.v1.EvalService.UpsertSuite.
@@ -228,6 +268,21 @@ func (c *evalServiceClient) SubmitVerdict(ctx context.Context, req *connect.Requ
 	return c.submitVerdict.CallUnary(ctx, req)
 }
 
+// EvaluateGate calls gantry.v1.EvalService.EvaluateGate.
+func (c *evalServiceClient) EvaluateGate(ctx context.Context, req *connect.Request[v1.EvaluateGateRequest]) (*connect.Response[v1.EvaluateGateResponse], error) {
+	return c.evaluateGate.CallUnary(ctx, req)
+}
+
+// PromoteBaseline calls gantry.v1.EvalService.PromoteBaseline.
+func (c *evalServiceClient) PromoteBaseline(ctx context.Context, req *connect.Request[v1.PromoteBaselineRequest]) (*connect.Response[v1.PromoteBaselineResponse], error) {
+	return c.promoteBaseline.CallUnary(ctx, req)
+}
+
+// GetBaseline calls gantry.v1.EvalService.GetBaseline.
+func (c *evalServiceClient) GetBaseline(ctx context.Context, req *connect.Request[v1.GetBaselineRequest]) (*connect.Response[v1.GetBaselineResponse], error) {
+	return c.getBaseline.CallUnary(ctx, req)
+}
+
 // EvalServiceHandler is an implementation of the gantry.v1.EvalService service.
 type EvalServiceHandler interface {
 	// ---- authoring: suites are the reusable test definitions ----
@@ -257,8 +312,19 @@ type EvalServiceHandler interface {
 	// Submit a verifier's verdict for a trial. Upserts on
 	// (trial_id, verifier_id, verifier_version): resubmitting the same verifier
 	// build replaces in place; a new version adds a distinct verdict (enabling
-	// re-grade of stored evidence without re-running the robot).
+	// re-grade of stored evidence without re-running the robot). Recomputes the
+	// trial's TrialOutcome from all its verdicts under the suite combine policy.
 	SubmitVerdict(context.Context, *connect.Request[v1.SubmitVerdictRequest]) (*connect.Response[v1.SubmitVerdictResponse], error)
+	// ---- gating: the release decision ----
+	// Aggregate a run's trial outcomes into metrics and compare the candidate
+	// against the baseline for its (suite, class) under the suite gate policy.
+	// Read-only: computes and stores the GateResult on the run without promoting.
+	EvaluateGate(context.Context, *connect.Request[v1.EvaluateGateRequest]) (*connect.Response[v1.EvaluateGateResponse], error)
+	// Promote a passed run's candidate to the baseline for its (suite, class).
+	// Idempotent per run (promoting the same run twice is a no-op).
+	PromoteBaseline(context.Context, *connect.Request[v1.PromoteBaselineRequest]) (*connect.Response[v1.PromoteBaselineResponse], error)
+	// Fetch the current baseline for a (suite, class). class "" = suite-wide.
+	GetBaseline(context.Context, *connect.Request[v1.GetBaselineRequest]) (*connect.Response[v1.GetBaselineResponse], error)
 }
 
 // NewEvalServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -328,6 +394,24 @@ func NewEvalServiceHandler(svc EvalServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(evalServiceMethods.ByName("SubmitVerdict")),
 		connect.WithHandlerOptions(opts...),
 	)
+	evalServiceEvaluateGateHandler := connect.NewUnaryHandler(
+		EvalServiceEvaluateGateProcedure,
+		svc.EvaluateGate,
+		connect.WithSchema(evalServiceMethods.ByName("EvaluateGate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	evalServicePromoteBaselineHandler := connect.NewUnaryHandler(
+		EvalServicePromoteBaselineProcedure,
+		svc.PromoteBaseline,
+		connect.WithSchema(evalServiceMethods.ByName("PromoteBaseline")),
+		connect.WithHandlerOptions(opts...),
+	)
+	evalServiceGetBaselineHandler := connect.NewUnaryHandler(
+		EvalServiceGetBaselineProcedure,
+		svc.GetBaseline,
+		connect.WithSchema(evalServiceMethods.ByName("GetBaseline")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gantry.v1.EvalService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case EvalServiceUpsertSuiteProcedure:
@@ -350,6 +434,12 @@ func NewEvalServiceHandler(svc EvalServiceHandler, opts ...connect.HandlerOption
 			evalServiceCloseTrialHandler.ServeHTTP(w, r)
 		case EvalServiceSubmitVerdictProcedure:
 			evalServiceSubmitVerdictHandler.ServeHTTP(w, r)
+		case EvalServiceEvaluateGateProcedure:
+			evalServiceEvaluateGateHandler.ServeHTTP(w, r)
+		case EvalServicePromoteBaselineProcedure:
+			evalServicePromoteBaselineHandler.ServeHTTP(w, r)
+		case EvalServiceGetBaselineProcedure:
+			evalServiceGetBaselineHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -397,4 +487,16 @@ func (UnimplementedEvalServiceHandler) CloseTrial(context.Context, *connect.Requ
 
 func (UnimplementedEvalServiceHandler) SubmitVerdict(context.Context, *connect.Request[v1.SubmitVerdictRequest]) (*connect.Response[v1.SubmitVerdictResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gantry.v1.EvalService.SubmitVerdict is not implemented"))
+}
+
+func (UnimplementedEvalServiceHandler) EvaluateGate(context.Context, *connect.Request[v1.EvaluateGateRequest]) (*connect.Response[v1.EvaluateGateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gantry.v1.EvalService.EvaluateGate is not implemented"))
+}
+
+func (UnimplementedEvalServiceHandler) PromoteBaseline(context.Context, *connect.Request[v1.PromoteBaselineRequest]) (*connect.Response[v1.PromoteBaselineResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gantry.v1.EvalService.PromoteBaseline is not implemented"))
+}
+
+func (UnimplementedEvalServiceHandler) GetBaseline(context.Context, *connect.Request[v1.GetBaselineRequest]) (*connect.Response[v1.GetBaselineResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gantry.v1.EvalService.GetBaseline is not implemented"))
 }

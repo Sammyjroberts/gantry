@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gantry/v1/eval.proto.
  */
 export const file_gantry_v1_eval: GenFile = /*@__PURE__*/
-  fileDesc("ChRnYW50cnkvdjEvZXZhbC5wcm90bxIJZ2FudHJ5LnYxIlwKB1N1YmplY3QSDAoEa2luZBgBIAEoCRILCgN1cmkYAiABKAkSDwoHdmVyc2lvbhgDIAEoCRIOCgZkaWdlc3QYBCABKAkSFQoNbWV0YWRhdGFfanNvbhgFIAEoCSJjCghTY2VuYXJpbxIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC3BhcmFtc19qc29uGAMgASgJEhQKDHRyaWFsX2J1ZGdldBgEIAEoDRISCgptaW5fc2NvcmVkGAUgASgNIvkBCgVTdWl0ZRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhQKDHN1YmplY3Rfa2luZBgDIAEoCRImCglzY2VuYXJpb3MYBCADKAsyEy5nYW50cnkudjEuU2NlbmFyaW8SHAoUdmVyaWZpZXJfY29uZmlnX2pzb24YBSABKAkSEwoLY2hlY2tzX2pzb24YBiABKAkSFAoMY29tYmluZV9qc29uGAcgASgJEhQKDG1ldHJpY3NfanNvbhgIIAEoCRIRCglnYXRlX2pzb24YCSABKAkSEgoKY3JlYXRlZF9ucxgKIAEoBhISCgp1cGRhdGVkX25zGAsgASgGIt8BCgVDaGVjaxIMCgRuYW1lGAEgASgJEh8KBXBoYXNlGAIgASgOMhAuZ2FudHJ5LnYxLlBoYXNlEhAKCHJlcXVpcmVkGAMgASgIEiIKBGtpbmQYBCABKA4yFC5nYW50cnkudjEuQ2hlY2tLaW5kEgwKBHBhc3MYBSABKAgSDQoFdmFsdWUYBiABKAESCgoCb3AYByABKAkSEQoJdGhyZXNob2xkGAggASgBEg4KBmxhYmVscxgJIAMoCRIVCg1ldmlkZW5jZV9yZWZzGAogAygJEg4KBmRldGFpbBgLIAEoCSJXCg5TY29yZWRFdmlkZW5jZRIXCg92aWRlb19jaHVua19pZHMYASADKAkSFgoOcmFuZ2Vfc3RhcnRfbnMYAiABKAYSFAoMcmFuZ2VfZW5kX25zGAMgASgGIsUBCgdWZXJkaWN0EhMKC3ZlcmlmaWVyX2lkGAEgASgJEhgKEHZlcmlmaWVyX3ZlcnNpb24YAiABKAkSFwoPdmVyaWZpZXJfZGlnZXN0GAMgASgJEhEKCXNjb3JlZF9ucxgEIAEoBhIuCgtzY29yZWRfZnJvbRgFIAEoCzIZLmdhbnRyeS52MS5TY29yZWRFdmlkZW5jZRIgCgZjaGVja3MYBiADKAsyEC5nYW50cnkudjEuQ2hlY2sSDQoFbm90ZXMYByABKAkisgEKDFRyaWFsT3V0Y29tZRIrCgtkaXNwb3NpdGlvbhgBIAEoDjIWLmdhbnRyeS52MS5EaXNwb3NpdGlvbhIOCgZyZWFzb24YAiABKAkSNQoHbWV0cmljcxgDIAMoCzIkLmdhbnRyeS52MS5UcmlhbE91dGNvbWUuTWV0cmljc0VudHJ5Gi4KDE1ldHJpY3NFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAE6AjgBIpECCgVUcmlhbBIKCgJpZBgBIAEoCRIOCgZydW5faWQYAiABKAkSEwoLc2NlbmFyaW9faWQYAyABKAkSFQoNZXhwZXJpbWVudF9pZBgEIAEoCRIPCgdhdHRlbXB0GAUgASgNEgwKBHNlZWQYBiABKAQSFwoPdmlkZW9fY2h1bmtfaWRzGAcgAygJEiQKCHZlcmRpY3RzGAggAygLMhIuZ2FudHJ5LnYxLlZlcmRpY3QSKAoHb3V0Y29tZRgJIAEoCzIXLmdhbnRyeS52MS5UcmlhbE91dGNvbWUSEgoKc3RhcnRlZF9ucxgKIAEoBhIQCghlbmRlZF9ucxgLIAEoBhISCgpzdGF0aW9uX2lkGAwgASgJIpQCCgdFdmFsUnVuEgoKAmlkGAEgASgJEhAKCHN1aXRlX2lkGAIgASgJEiUKCWNhbmRpZGF0ZRgDIAEoCzISLmdhbnRyeS52MS5TdWJqZWN0EiQKCGJhc2VsaW5lGAQgASgLMhIuZ2FudHJ5LnYxLlN1YmplY3QSJAoGc3RhdHVzGAUgASgOMhQuZ2FudHJ5LnYxLlJ1blN0YXR1cxIXCg90YXJnZXRfc2VsZWN0b3IYBiABKAkSEAoIcmVwbGljYXMYByABKA0SEwoLc3RhdGlvbl9pZHMYCCADKAkSEgoKY3JlYXRlZF9ucxgJIAEoBhISCgpzdGFydGVkX25zGAogASgGEhAKCGVuZGVkX25zGAsgASgGIjUKElVwc2VydFN1aXRlUmVxdWVzdBIfCgVzdWl0ZRgBIAEoCzIQLmdhbnRyeS52MS5TdWl0ZSI2ChNVcHNlcnRTdWl0ZVJlc3BvbnNlEh8KBXN1aXRlGAEgASgLMhAuZ2FudHJ5LnYxLlN1aXRlIhMKEUxpc3RTdWl0ZXNSZXF1ZXN0IjYKEkxpc3RTdWl0ZXNSZXNwb25zZRIgCgZzdWl0ZXMYASADKAsyEC5nYW50cnkudjEuU3VpdGUiHQoPR2V0U3VpdGVSZXF1ZXN0EgoKAmlkGAEgASgJIjMKEEdldFN1aXRlUmVzcG9uc2USHwoFc3VpdGUYASABKAsyEC5nYW50cnkudjEuU3VpdGUiPQoWUmVnaXN0ZXJTdWJqZWN0UmVxdWVzdBIjCgdzdWJqZWN0GAEgASgLMhIuZ2FudHJ5LnYxLlN1YmplY3QiPgoXUmVnaXN0ZXJTdWJqZWN0UmVzcG9uc2USIwoHc3ViamVjdBgBIAEoCzISLmdhbnRyeS52MS5TdWJqZWN0IqQBCg9TdGFydFJ1blJlcXVlc3QSEAoIc3VpdGVfaWQYASABKAkSJQoJY2FuZGlkYXRlGAIgASgLMhIuZ2FudHJ5LnYxLlN1YmplY3QSFAoMYmFzZWxpbmVfcmVmGAMgASgJEhcKD3RhcmdldF9zZWxlY3RvchgEIAEoCRIQCghyZXBsaWNhcxgFIAEoDRIXCg9pZGVtcG90ZW5jeV9rZXkYBiABKAkiMwoQU3RhcnRSdW5SZXNwb25zZRIfCgNydW4YASABKAsyEi5nYW50cnkudjEuRXZhbFJ1biIjCg9MaXN0UnVuc1JlcXVlc3QSEAoIc3VpdGVfaWQYASABKAkiNAoQTGlzdFJ1bnNSZXNwb25zZRIgCgRydW5zGAEgAygLMhIuZ2FudHJ5LnYxLkV2YWxSdW4iGwoNR2V0UnVuUmVxdWVzdBIKCgJpZBgBIAEoCSJTCg5HZXRSdW5SZXNwb25zZRIfCgNydW4YASABKAsyEi5nYW50cnkudjEuRXZhbFJ1bhIgCgZ0cmlhbHMYAiADKAsyEC5nYW50cnkudjEuVHJpYWwigwEKEE9wZW5UcmlhbFJlcXVlc3QSDgoGcnVuX2lkGAEgASgJEhMKC3NjZW5hcmlvX2lkGAIgASgJEg8KB2F0dGVtcHQYAyABKA0SEgoKc3RhdGlvbl9pZBgEIAEoCRIMCgRzZWVkGAUgASgEEhcKD2lkZW1wb3RlbmN5X2tleRgGIAEoCSI0ChFPcGVuVHJpYWxSZXNwb25zZRIfCgV0cmlhbBgBIAEoCzIQLmdhbnRyeS52MS5UcmlhbCJOChFDbG9zZVRyaWFsUmVxdWVzdBIQCgh0cmlhbF9pZBgBIAEoCRIOCgZlbmRfbnMYAiABKAYSFwoPdmlkZW9fY2h1bmtfaWRzGAMgAygJIjUKEkNsb3NlVHJpYWxSZXNwb25zZRIfCgV0cmlhbBgBIAEoCzIQLmdhbnRyeS52MS5UcmlhbCJmChRTdWJtaXRWZXJkaWN0UmVxdWVzdBIQCgh0cmlhbF9pZBgBIAEoCRIjCgd2ZXJkaWN0GAIgASgLMhIuZ2FudHJ5LnYxLlZlcmRpY3QSFwoPaWRlbXBvdGVuY3lfa2V5GAMgASgJIjgKFVN1Ym1pdFZlcmRpY3RSZXNwb25zZRIfCgV0cmlhbBgBIAEoCzIQLmdhbnRyeS52MS5UcmlhbCpbCgVQaGFzZRIVChFQSEFTRV9VTlNQRUNJRklFRBAAEhYKElBIQVNFX1BSRUNPTkRJVElPThABEhAKDFBIQVNFX0RVUklORxACEhEKDVBIQVNFX09VVENPTUUQAypUCglDaGVja0tpbmQSGgoWQ0hFQ0tfS0lORF9VTlNQRUNJRklFRBAAEhMKD0NIRUNLX0tJTkRfQk9PTBABEhYKEkNIRUNLX0tJTkRfTlVNRVJJQxACKmwKC0Rpc3Bvc2l0aW9uEhsKF0RJU1BPU0lUSU9OX1VOU1BFQ0lGSUVEEAASFAoQRElTUE9TSVRJT05fVk9JRBABEhQKEERJU1BPU0lUSU9OX1BBU1MQAhIUChBESVNQT1NJVElPTl9GQUlMEAMqsAEKCVJ1blN0YXR1cxIaChZSVU5fU1RBVFVTX1VOU1BFQ0lGSUVEEAASFgoSUlVOX1NUQVRVU19QRU5ESU5HEAESFgoSUlVOX1NUQVRVU19SVU5OSU5HEAISFQoRUlVOX1NUQVRVU19TQ09SRUQQAxIUChBSVU5fU1RBVFVTX0dBVEVEEAQSEwoPUlVOX1NUQVRVU19ET05FEAUSFQoRUlVOX1NUQVRVU19GQUlMRUQQBjL1BQoLRXZhbFNlcnZpY2USTAoLVXBzZXJ0U3VpdGUSHS5nYW50cnkudjEuVXBzZXJ0U3VpdGVSZXF1ZXN0Gh4uZ2FudHJ5LnYxLlVwc2VydFN1aXRlUmVzcG9uc2USSQoKTGlzdFN1aXRlcxIcLmdhbnRyeS52MS5MaXN0U3VpdGVzUmVxdWVzdBodLmdhbnRyeS52MS5MaXN0U3VpdGVzUmVzcG9uc2USQwoIR2V0U3VpdGUSGi5nYW50cnkudjEuR2V0U3VpdGVSZXF1ZXN0GhsuZ2FudHJ5LnYxLkdldFN1aXRlUmVzcG9uc2USWAoPUmVnaXN0ZXJTdWJqZWN0EiEuZ2FudHJ5LnYxLlJlZ2lzdGVyU3ViamVjdFJlcXVlc3QaIi5nYW50cnkudjEuUmVnaXN0ZXJTdWJqZWN0UmVzcG9uc2USQwoIU3RhcnRSdW4SGi5nYW50cnkudjEuU3RhcnRSdW5SZXF1ZXN0GhsuZ2FudHJ5LnYxLlN0YXJ0UnVuUmVzcG9uc2USQwoITGlzdFJ1bnMSGi5nYW50cnkudjEuTGlzdFJ1bnNSZXF1ZXN0GhsuZ2FudHJ5LnYxLkxpc3RSdW5zUmVzcG9uc2USPQoGR2V0UnVuEhguZ2FudHJ5LnYxLkdldFJ1blJlcXVlc3QaGS5nYW50cnkudjEuR2V0UnVuUmVzcG9uc2USRgoJT3BlblRyaWFsEhsuZ2FudHJ5LnYxLk9wZW5UcmlhbFJlcXVlc3QaHC5nYW50cnkudjEuT3BlblRyaWFsUmVzcG9uc2USSQoKQ2xvc2VUcmlhbBIcLmdhbnRyeS52MS5DbG9zZVRyaWFsUmVxdWVzdBodLmdhbnRyeS52MS5DbG9zZVRyaWFsUmVzcG9uc2USUgoNU3VibWl0VmVyZGljdBIfLmdhbnRyeS52MS5TdWJtaXRWZXJkaWN0UmVxdWVzdBogLmdhbnRyeS52MS5TdWJtaXRWZXJkaWN0UmVzcG9uc2VCmgEKDWNvbS5nYW50cnkudjFCCUV2YWxQcm90b1ABWjlnaXRodWIuY29tL1NhbW15anJvYmVydHMvZ2FudHJ5L2dlbi9nby9nYW50cnkvdjE7Z2FudHJ5djGiAgNHWFiqAglHYW50cnkuVjHKAglHYW50cnlcVjHiAhVHYW50cnlcVjFcR1BCTWV0YWRhdGHqAgpHYW50cnk6OlYxYgZwcm90bzM");
+  fileDesc("ChRnYW50cnkvdjEvZXZhbC5wcm90bxIJZ2FudHJ5LnYxIlwKB1N1YmplY3QSDAoEa2luZBgBIAEoCRILCgN1cmkYAiABKAkSDwoHdmVyc2lvbhgDIAEoCRIOCgZkaWdlc3QYBCABKAkSFQoNbWV0YWRhdGFfanNvbhgFIAEoCSJjCghTY2VuYXJpbxIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC3BhcmFtc19qc29uGAMgASgJEhQKDHRyaWFsX2J1ZGdldBgEIAEoDRISCgptaW5fc2NvcmVkGAUgASgNIpYCCgVTdWl0ZRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhQKDHN1YmplY3Rfa2luZBgDIAEoCRImCglzY2VuYXJpb3MYBCADKAsyEy5nYW50cnkudjEuU2NlbmFyaW8SHAoUdmVyaWZpZXJfY29uZmlnX2pzb24YBSABKAkSEwoLY2hlY2tzX2pzb24YBiABKAkSFAoMY29tYmluZV9qc29uGAcgASgJEhQKDG1ldHJpY3NfanNvbhgIIAEoCRIRCglnYXRlX2pzb24YCSABKAkSEgoKY3JlYXRlZF9ucxgKIAEoBhISCgp1cGRhdGVkX25zGAsgASgGEhsKE2Jhc2VsaW5lX2NsYXNzX2tleXMYDCADKAki3wEKBUNoZWNrEgwKBG5hbWUYASABKAkSHwoFcGhhc2UYAiABKA4yEC5nYW50cnkudjEuUGhhc2USEAoIcmVxdWlyZWQYAyABKAgSIgoEa2luZBgEIAEoDjIULmdhbnRyeS52MS5DaGVja0tpbmQSDAoEcGFzcxgFIAEoCBINCgV2YWx1ZRgGIAEoARIKCgJvcBgHIAEoCRIRCgl0aHJlc2hvbGQYCCABKAESDgoGbGFiZWxzGAkgAygJEhUKDWV2aWRlbmNlX3JlZnMYCiADKAkSDgoGZGV0YWlsGAsgASgJIlcKDlNjb3JlZEV2aWRlbmNlEhcKD3ZpZGVvX2NodW5rX2lkcxgBIAMoCRIWCg5yYW5nZV9zdGFydF9ucxgCIAEoBhIUCgxyYW5nZV9lbmRfbnMYAyABKAYixQEKB1ZlcmRpY3QSEwoLdmVyaWZpZXJfaWQYASABKAkSGAoQdmVyaWZpZXJfdmVyc2lvbhgCIAEoCRIXCg92ZXJpZmllcl9kaWdlc3QYAyABKAkSEQoJc2NvcmVkX25zGAQgASgGEi4KC3Njb3JlZF9mcm9tGAUgASgLMhkuZ2FudHJ5LnYxLlNjb3JlZEV2aWRlbmNlEiAKBmNoZWNrcxgGIAMoCzIQLmdhbnRyeS52MS5DaGVjaxINCgVub3RlcxgHIAEoCSKyAQoMVHJpYWxPdXRjb21lEisKC2Rpc3Bvc2l0aW9uGAEgASgOMhYuZ2FudHJ5LnYxLkRpc3Bvc2l0aW9uEg4KBnJlYXNvbhgCIAEoCRI1CgdtZXRyaWNzGAMgAygLMiQuZ2FudHJ5LnYxLlRyaWFsT3V0Y29tZS5NZXRyaWNzRW50cnkaLgoMTWV0cmljc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoAToCOAEikQIKBVRyaWFsEgoKAmlkGAEgASgJEg4KBnJ1bl9pZBgCIAEoCRITCgtzY2VuYXJpb19pZBgDIAEoCRIVCg1leHBlcmltZW50X2lkGAQgASgJEg8KB2F0dGVtcHQYBSABKA0SDAoEc2VlZBgGIAEoBBIXCg92aWRlb19jaHVua19pZHMYByADKAkSJAoIdmVyZGljdHMYCCADKAsyEi5nYW50cnkudjEuVmVyZGljdBIoCgdvdXRjb21lGAkgASgLMhcuZ2FudHJ5LnYxLlRyaWFsT3V0Y29tZRISCgpzdGFydGVkX25zGAogASgGEhAKCGVuZGVkX25zGAsgASgGEhIKCnN0YXRpb25faWQYDCABKAki0AIKB0V2YWxSdW4SCgoCaWQYASABKAkSEAoIc3VpdGVfaWQYAiABKAkSJQoJY2FuZGlkYXRlGAMgASgLMhIuZ2FudHJ5LnYxLlN1YmplY3QSJAoIYmFzZWxpbmUYBCABKAsyEi5nYW50cnkudjEuU3ViamVjdBIkCgZzdGF0dXMYBSABKA4yFC5nYW50cnkudjEuUnVuU3RhdHVzEhcKD3RhcmdldF9zZWxlY3RvchgGIAEoCRIQCghyZXBsaWNhcxgHIAEoDRITCgtzdGF0aW9uX2lkcxgIIAMoCRISCgpjcmVhdGVkX25zGAkgASgGEhIKCnN0YXJ0ZWRfbnMYCiABKAYSEAoIZW5kZWRfbnMYCyABKAYSFQoNc3RhdGlvbl9jbGFzcxgMIAEoCRIjCgRnYXRlGA0gASgLMhUuZ2FudHJ5LnYxLkdhdGVSZXN1bHQiNQoSVXBzZXJ0U3VpdGVSZXF1ZXN0Eh8KBXN1aXRlGAEgASgLMhAuZ2FudHJ5LnYxLlN1aXRlIjYKE1Vwc2VydFN1aXRlUmVzcG9uc2USHwoFc3VpdGUYASABKAsyEC5nYW50cnkudjEuU3VpdGUiEwoRTGlzdFN1aXRlc1JlcXVlc3QiNgoSTGlzdFN1aXRlc1Jlc3BvbnNlEiAKBnN1aXRlcxgBIAMoCzIQLmdhbnRyeS52MS5TdWl0ZSIdCg9HZXRTdWl0ZVJlcXVlc3QSCgoCaWQYASABKAkiMwoQR2V0U3VpdGVSZXNwb25zZRIfCgVzdWl0ZRgBIAEoCzIQLmdhbnRyeS52MS5TdWl0ZSI9ChZSZWdpc3RlclN1YmplY3RSZXF1ZXN0EiMKB3N1YmplY3QYASABKAsyEi5nYW50cnkudjEuU3ViamVjdCI+ChdSZWdpc3RlclN1YmplY3RSZXNwb25zZRIjCgdzdWJqZWN0GAEgASgLMhIuZ2FudHJ5LnYxLlN1YmplY3QipAEKD1N0YXJ0UnVuUmVxdWVzdBIQCghzdWl0ZV9pZBgBIAEoCRIlCgljYW5kaWRhdGUYAiABKAsyEi5nYW50cnkudjEuU3ViamVjdBIUCgxiYXNlbGluZV9yZWYYAyABKAkSFwoPdGFyZ2V0X3NlbGVjdG9yGAQgASgJEhAKCHJlcGxpY2FzGAUgASgNEhcKD2lkZW1wb3RlbmN5X2tleRgGIAEoCSIzChBTdGFydFJ1blJlc3BvbnNlEh8KA3J1bhgBIAEoCzISLmdhbnRyeS52MS5FdmFsUnVuIiMKD0xpc3RSdW5zUmVxdWVzdBIQCghzdWl0ZV9pZBgBIAEoCSI0ChBMaXN0UnVuc1Jlc3BvbnNlEiAKBHJ1bnMYASADKAsyEi5nYW50cnkudjEuRXZhbFJ1biIbCg1HZXRSdW5SZXF1ZXN0EgoKAmlkGAEgASgJIlMKDkdldFJ1blJlc3BvbnNlEh8KA3J1bhgBIAEoCzISLmdhbnRyeS52MS5FdmFsUnVuEiAKBnRyaWFscxgCIAMoCzIQLmdhbnRyeS52MS5UcmlhbCKDAQoQT3BlblRyaWFsUmVxdWVzdBIOCgZydW5faWQYASABKAkSEwoLc2NlbmFyaW9faWQYAiABKAkSDwoHYXR0ZW1wdBgDIAEoDRISCgpzdGF0aW9uX2lkGAQgASgJEgwKBHNlZWQYBSABKAQSFwoPaWRlbXBvdGVuY3lfa2V5GAYgASgJIjQKEU9wZW5UcmlhbFJlc3BvbnNlEh8KBXRyaWFsGAEgASgLMhAuZ2FudHJ5LnYxLlRyaWFsIk4KEUNsb3NlVHJpYWxSZXF1ZXN0EhAKCHRyaWFsX2lkGAEgASgJEg4KBmVuZF9ucxgCIAEoBhIXCg92aWRlb19jaHVua19pZHMYAyADKAkiNQoSQ2xvc2VUcmlhbFJlc3BvbnNlEh8KBXRyaWFsGAEgASgLMhAuZ2FudHJ5LnYxLlRyaWFsImYKFFN1Ym1pdFZlcmRpY3RSZXF1ZXN0EhAKCHRyaWFsX2lkGAEgASgJEiMKB3ZlcmRpY3QYAiABKAsyEi5nYW50cnkudjEuVmVyZGljdBIXCg9pZGVtcG90ZW5jeV9rZXkYAyABKAkiOAoVU3VibWl0VmVyZGljdFJlc3BvbnNlEh8KBXRyaWFsGAEgASgLMhAuZ2FudHJ5LnYxLlRyaWFsIogBCglHYXRlQ2hlY2sSDgoGbWV0cmljGAEgASgJEhcKD2NhbmRpZGF0ZV92YWx1ZRgCIAEoARIWCg5iYXNlbGluZV92YWx1ZRgDIAEoARIKCgJvcBgEIAEoCRIOCgZtYXJnaW4YBSABKAESDgoGcGFzc2VkGAYgASgIEg4KBmRldGFpbBgHIAEoCSLPAQoKR2F0ZVJlc3VsdBIOCgZwYXNzZWQYASABKAgSFAoMaW5jb25jbHVzaXZlGAIgASgIEiQKBmNoZWNrcxgDIAMoCzIULmdhbnRyeS52MS5HYXRlQ2hlY2sSJQoJY2FuZGlkYXRlGAQgASgLMhIuZ2FudHJ5LnYxLlN1YmplY3QSJAoIYmFzZWxpbmUYBSABKAsyEi5nYW50cnkudjEuU3ViamVjdBIMCgRwYXNzGAYgASgNEgwKBGZhaWwYByABKA0SDAoEdm9pZBgIIAEoDSKYAQoIQmFzZWxpbmUSEAoIc3VpdGVfaWQYASABKAkSFQoNc3RhdGlvbl9jbGFzcxgCIAEoCRIjCgdzdWJqZWN0GAMgASgLMhIuZ2FudHJ5LnYxLlN1YmplY3QSEwoLZnJvbV9ydW5faWQYBCABKAkSFAoMc3VjY2Vzc19yYXRlGAUgASgBEhMKC3Byb21vdGVkX25zGAYgASgGIiUKE0V2YWx1YXRlR2F0ZVJlcXVlc3QSDgoGcnVuX2lkGAEgASgJIj0KFEV2YWx1YXRlR2F0ZVJlc3BvbnNlEiUKBnJlc3VsdBgBIAEoCzIVLmdhbnRyeS52MS5HYXRlUmVzdWx0IkEKFlByb21vdGVCYXNlbGluZVJlcXVlc3QSDgoGcnVuX2lkGAEgASgJEhcKD2lkZW1wb3RlbmN5X2tleRgCIAEoCSJAChdQcm9tb3RlQmFzZWxpbmVSZXNwb25zZRIlCghiYXNlbGluZRgBIAEoCzITLmdhbnRyeS52MS5CYXNlbGluZSI9ChJHZXRCYXNlbGluZVJlcXVlc3QSEAoIc3VpdGVfaWQYASABKAkSFQoNc3RhdGlvbl9jbGFzcxgCIAEoCSI8ChNHZXRCYXNlbGluZVJlc3BvbnNlEiUKCGJhc2VsaW5lGAEgASgLMhMuZ2FudHJ5LnYxLkJhc2VsaW5lKlsKBVBoYXNlEhUKEVBIQVNFX1VOU1BFQ0lGSUVEEAASFgoSUEhBU0VfUFJFQ09ORElUSU9OEAESEAoMUEhBU0VfRFVSSU5HEAISEQoNUEhBU0VfT1VUQ09NRRADKlQKCUNoZWNrS2luZBIaChZDSEVDS19LSU5EX1VOU1BFQ0lGSUVEEAASEwoPQ0hFQ0tfS0lORF9CT09MEAESFgoSQ0hFQ0tfS0lORF9OVU1FUklDEAIqbAoLRGlzcG9zaXRpb24SGwoXRElTUE9TSVRJT05fVU5TUEVDSUZJRUQQABIUChBESVNQT1NJVElPTl9WT0lEEAESFAoQRElTUE9TSVRJT05fUEFTUxACEhQKEERJU1BPU0lUSU9OX0ZBSUwQAyqwAQoJUnVuU3RhdHVzEhoKFlJVTl9TVEFUVVNfVU5TUEVDSUZJRUQQABIWChJSVU5fU1RBVFVTX1BFTkRJTkcQARIWChJSVU5fU1RBVFVTX1JVTk5JTkcQAhIVChFSVU5fU1RBVFVTX1NDT1JFRBADEhQKEFJVTl9TVEFUVVNfR0FURUQQBBITCg9SVU5fU1RBVFVTX0RPTkUQBRIVChFSVU5fU1RBVFVTX0ZBSUxFRBAGMu4HCgtFdmFsU2VydmljZRJMCgtVcHNlcnRTdWl0ZRIdLmdhbnRyeS52MS5VcHNlcnRTdWl0ZVJlcXVlc3QaHi5nYW50cnkudjEuVXBzZXJ0U3VpdGVSZXNwb25zZRJJCgpMaXN0U3VpdGVzEhwuZ2FudHJ5LnYxLkxpc3RTdWl0ZXNSZXF1ZXN0Gh0uZ2FudHJ5LnYxLkxpc3RTdWl0ZXNSZXNwb25zZRJDCghHZXRTdWl0ZRIaLmdhbnRyeS52MS5HZXRTdWl0ZVJlcXVlc3QaGy5nYW50cnkudjEuR2V0U3VpdGVSZXNwb25zZRJYCg9SZWdpc3RlclN1YmplY3QSIS5nYW50cnkudjEuUmVnaXN0ZXJTdWJqZWN0UmVxdWVzdBoiLmdhbnRyeS52MS5SZWdpc3RlclN1YmplY3RSZXNwb25zZRJDCghTdGFydFJ1bhIaLmdhbnRyeS52MS5TdGFydFJ1blJlcXVlc3QaGy5nYW50cnkudjEuU3RhcnRSdW5SZXNwb25zZRJDCghMaXN0UnVucxIaLmdhbnRyeS52MS5MaXN0UnVuc1JlcXVlc3QaGy5nYW50cnkudjEuTGlzdFJ1bnNSZXNwb25zZRI9CgZHZXRSdW4SGC5nYW50cnkudjEuR2V0UnVuUmVxdWVzdBoZLmdhbnRyeS52MS5HZXRSdW5SZXNwb25zZRJGCglPcGVuVHJpYWwSGy5nYW50cnkudjEuT3BlblRyaWFsUmVxdWVzdBocLmdhbnRyeS52MS5PcGVuVHJpYWxSZXNwb25zZRJJCgpDbG9zZVRyaWFsEhwuZ2FudHJ5LnYxLkNsb3NlVHJpYWxSZXF1ZXN0Gh0uZ2FudHJ5LnYxLkNsb3NlVHJpYWxSZXNwb25zZRJSCg1TdWJtaXRWZXJkaWN0Eh8uZ2FudHJ5LnYxLlN1Ym1pdFZlcmRpY3RSZXF1ZXN0GiAuZ2FudHJ5LnYxLlN1Ym1pdFZlcmRpY3RSZXNwb25zZRJPCgxFdmFsdWF0ZUdhdGUSHi5nYW50cnkudjEuRXZhbHVhdGVHYXRlUmVxdWVzdBofLmdhbnRyeS52MS5FdmFsdWF0ZUdhdGVSZXNwb25zZRJYCg9Qcm9tb3RlQmFzZWxpbmUSIS5nYW50cnkudjEuUHJvbW90ZUJhc2VsaW5lUmVxdWVzdBoiLmdhbnRyeS52MS5Qcm9tb3RlQmFzZWxpbmVSZXNwb25zZRJMCgtHZXRCYXNlbGluZRIdLmdhbnRyeS52MS5HZXRCYXNlbGluZVJlcXVlc3QaHi5nYW50cnkudjEuR2V0QmFzZWxpbmVSZXNwb25zZUKaAQoNY29tLmdhbnRyeS52MUIJRXZhbFByb3RvUAFaOWdpdGh1Yi5jb20vU2FtbXlqcm9iZXJ0cy9nYW50cnkvZ2VuL2dvL2dhbnRyeS92MTtnYW50cnl2MaICA0dYWKoCCUdhbnRyeS5WMcoCCUdhbnRyeVxWMeICFUdhbnRyeVxWMVxHUEJNZXRhZGF0YeoCCkdhbnRyeTo6VjFiBnByb3RvMw");
 
 /**
  * A versioned artifact ref: the candidate/baseline under test, or a pinned
@@ -173,6 +173,16 @@ export type Suite = Message<"gantry.v1.Suite"> & {
    * @generated from field: fixed64 updated_ns = 11;
    */
   updatedNs: bigint;
+
+  /**
+   * Station-tag keys that partition baselines within this suite. Empty (the
+   * default) = one champion per suite; e.g. ["arm", "sim"] keeps a separate
+   * champion per arm model and per sim/real. The class of a run is the tuple of
+   * these tag values on the stations it ran (see EvalRun.station_class).
+   *
+   * @generated from field: repeated string baseline_class_keys = 12;
+   */
+  baselineClassKeys: string[];
 };
 
 /**
@@ -545,6 +555,22 @@ export type EvalRun = Message<"gantry.v1.EvalRun"> & {
    * @generated from field: fixed64 ended_ns = 11;
    */
   endedNs: bigint;
+
+  /**
+   * The baseline class this run's candidate is compared within (the projection
+   * of the suite's baseline_class_keys over the run's station tags; "" when the
+   * suite declares no class keys).
+   *
+   * @generated from field: string station_class = 12;
+   */
+  stationClass: string;
+
+  /**
+   * The gate outcome, populated by EvaluateGate.
+   *
+   * @generated from field: gantry.v1.GateResult gate = 13;
+   */
+  gate?: GateResult | undefined;
 };
 
 /**
@@ -979,6 +1005,282 @@ export const SubmitVerdictResponseSchema: GenMessage<SubmitVerdictResponse> = /*
   messageDesc(file_gantry_v1_eval, 28);
 
 /**
+ * The result of one gate check: a candidate metric compared to the baseline.
+ *
+ * @generated from message gantry.v1.GateCheck
+ */
+export type GateCheck = Message<"gantry.v1.GateCheck"> & {
+  /**
+   * @generated from field: string metric = 1;
+   */
+  metric: string;
+
+  /**
+   * @generated from field: double candidate_value = 2;
+   */
+  candidateValue: number;
+
+  /**
+   * @generated from field: double baseline_value = 3;
+   */
+  baselineValue: number;
+
+  /**
+   * ">=" | "non_inferior" | "abs>=" | "<=".
+   *
+   * @generated from field: string op = 4;
+   */
+  op: string;
+
+  /**
+   * Non-inferiority / tolerance margin (or absolute floor for "abs>=").
+   *
+   * @generated from field: double margin = 5;
+   */
+  margin: number;
+
+  /**
+   * @generated from field: bool passed = 6;
+   */
+  passed: boolean;
+
+  /**
+   * Human-readable rationale, e.g. the Wilson interval used.
+   *
+   * @generated from field: string detail = 7;
+   */
+  detail: string;
+};
+
+/**
+ * Describes the message gantry.v1.GateCheck.
+ * Use `create(GateCheckSchema)` to create a new message.
+ */
+export const GateCheckSchema: GenMessage<GateCheck> = /*@__PURE__*/
+  messageDesc(file_gantry_v1_eval, 29);
+
+/**
+ * The gate outcome for a run: pass iff every check passed and none were
+ * inconclusive.
+ *
+ * @generated from message gantry.v1.GateResult
+ */
+export type GateResult = Message<"gantry.v1.GateResult"> & {
+  /**
+   * @generated from field: bool passed = 1;
+   */
+  passed: boolean;
+
+  /**
+   * True when too few trials scored to decide (treated as fail in CI).
+   *
+   * @generated from field: bool inconclusive = 2;
+   */
+  inconclusive: boolean;
+
+  /**
+   * @generated from field: repeated gantry.v1.GateCheck checks = 3;
+   */
+  checks: GateCheck[];
+
+  /**
+   * @generated from field: gantry.v1.Subject candidate = 4;
+   */
+  candidate?: Subject | undefined;
+
+  /**
+   * @generated from field: gantry.v1.Subject baseline = 5;
+   */
+  baseline?: Subject | undefined;
+
+  /**
+   * Trial disposition tallies backing the metrics (VOID excluded from rates).
+   *
+   * @generated from field: uint32 pass = 6;
+   */
+  pass: number;
+
+  /**
+   * @generated from field: uint32 fail = 7;
+   */
+  fail: number;
+
+  /**
+   * @generated from field: uint32 void = 8;
+   */
+  void: number;
+};
+
+/**
+ * Describes the message gantry.v1.GateResult.
+ * Use `create(GateResultSchema)` to create a new message.
+ */
+export const GateResultSchema: GenMessage<GateResult> = /*@__PURE__*/
+  messageDesc(file_gantry_v1_eval, 30);
+
+/**
+ * The current champion for a (suite, class): what candidates are gated against.
+ *
+ * @generated from message gantry.v1.Baseline
+ */
+export type Baseline = Message<"gantry.v1.Baseline"> & {
+  /**
+   * @generated from field: string suite_id = 1;
+   */
+  suiteId: string;
+
+  /**
+   * "" = suite-wide (the default when the suite declares no class keys).
+   *
+   * @generated from field: string station_class = 2;
+   */
+  stationClass: string;
+
+  /**
+   * @generated from field: gantry.v1.Subject subject = 3;
+   */
+  subject?: Subject | undefined;
+
+  /**
+   * The run that established this baseline.
+   *
+   * @generated from field: string from_run_id = 4;
+   */
+  fromRunId: string;
+
+  /**
+   * The champion's recorded success rate (the gate's comparison point).
+   *
+   * @generated from field: double success_rate = 5;
+   */
+  successRate: number;
+
+  /**
+   * @generated from field: fixed64 promoted_ns = 6;
+   */
+  promotedNs: bigint;
+};
+
+/**
+ * Describes the message gantry.v1.Baseline.
+ * Use `create(BaselineSchema)` to create a new message.
+ */
+export const BaselineSchema: GenMessage<Baseline> = /*@__PURE__*/
+  messageDesc(file_gantry_v1_eval, 31);
+
+/**
+ * @generated from message gantry.v1.EvaluateGateRequest
+ */
+export type EvaluateGateRequest = Message<"gantry.v1.EvaluateGateRequest"> & {
+  /**
+   * @generated from field: string run_id = 1;
+   */
+  runId: string;
+};
+
+/**
+ * Describes the message gantry.v1.EvaluateGateRequest.
+ * Use `create(EvaluateGateRequestSchema)` to create a new message.
+ */
+export const EvaluateGateRequestSchema: GenMessage<EvaluateGateRequest> = /*@__PURE__*/
+  messageDesc(file_gantry_v1_eval, 32);
+
+/**
+ * @generated from message gantry.v1.EvaluateGateResponse
+ */
+export type EvaluateGateResponse = Message<"gantry.v1.EvaluateGateResponse"> & {
+  /**
+   * @generated from field: gantry.v1.GateResult result = 1;
+   */
+  result?: GateResult | undefined;
+};
+
+/**
+ * Describes the message gantry.v1.EvaluateGateResponse.
+ * Use `create(EvaluateGateResponseSchema)` to create a new message.
+ */
+export const EvaluateGateResponseSchema: GenMessage<EvaluateGateResponse> = /*@__PURE__*/
+  messageDesc(file_gantry_v1_eval, 33);
+
+/**
+ * @generated from message gantry.v1.PromoteBaselineRequest
+ */
+export type PromoteBaselineRequest = Message<"gantry.v1.PromoteBaselineRequest"> & {
+  /**
+   * @generated from field: string run_id = 1;
+   */
+  runId: string;
+
+  /**
+   * @generated from field: string idempotency_key = 2;
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * Describes the message gantry.v1.PromoteBaselineRequest.
+ * Use `create(PromoteBaselineRequestSchema)` to create a new message.
+ */
+export const PromoteBaselineRequestSchema: GenMessage<PromoteBaselineRequest> = /*@__PURE__*/
+  messageDesc(file_gantry_v1_eval, 34);
+
+/**
+ * @generated from message gantry.v1.PromoteBaselineResponse
+ */
+export type PromoteBaselineResponse = Message<"gantry.v1.PromoteBaselineResponse"> & {
+  /**
+   * @generated from field: gantry.v1.Baseline baseline = 1;
+   */
+  baseline?: Baseline | undefined;
+};
+
+/**
+ * Describes the message gantry.v1.PromoteBaselineResponse.
+ * Use `create(PromoteBaselineResponseSchema)` to create a new message.
+ */
+export const PromoteBaselineResponseSchema: GenMessage<PromoteBaselineResponse> = /*@__PURE__*/
+  messageDesc(file_gantry_v1_eval, 35);
+
+/**
+ * @generated from message gantry.v1.GetBaselineRequest
+ */
+export type GetBaselineRequest = Message<"gantry.v1.GetBaselineRequest"> & {
+  /**
+   * @generated from field: string suite_id = 1;
+   */
+  suiteId: string;
+
+  /**
+   * @generated from field: string station_class = 2;
+   */
+  stationClass: string;
+};
+
+/**
+ * Describes the message gantry.v1.GetBaselineRequest.
+ * Use `create(GetBaselineRequestSchema)` to create a new message.
+ */
+export const GetBaselineRequestSchema: GenMessage<GetBaselineRequest> = /*@__PURE__*/
+  messageDesc(file_gantry_v1_eval, 36);
+
+/**
+ * @generated from message gantry.v1.GetBaselineResponse
+ */
+export type GetBaselineResponse = Message<"gantry.v1.GetBaselineResponse"> & {
+  /**
+   * @generated from field: gantry.v1.Baseline baseline = 1;
+   */
+  baseline?: Baseline | undefined;
+};
+
+/**
+ * Describes the message gantry.v1.GetBaselineResponse.
+ * Use `create(GetBaselineResponseSchema)` to create a new message.
+ */
+export const GetBaselineResponseSchema: GenMessage<GetBaselineResponse> = /*@__PURE__*/
+  messageDesc(file_gantry_v1_eval, 37);
+
+/**
  * Phase of a check: when in a trial's lifecycle it applies.
  *
  * @generated from enum gantry.v1.Phase
@@ -1255,7 +1557,8 @@ export const EvalService: GenService<{
    * Submit a verifier's verdict for a trial. Upserts on
    * (trial_id, verifier_id, verifier_version): resubmitting the same verifier
    * build replaces in place; a new version adds a distinct verdict (enabling
-   * re-grade of stored evidence without re-running the robot).
+   * re-grade of stored evidence without re-running the robot). Recomputes the
+   * trial's TrialOutcome from all its verdicts under the suite combine policy.
    *
    * @generated from rpc gantry.v1.EvalService.SubmitVerdict
    */
@@ -1263,6 +1566,40 @@ export const EvalService: GenService<{
     methodKind: "unary";
     input: typeof SubmitVerdictRequestSchema;
     output: typeof SubmitVerdictResponseSchema;
+  },
+  /**
+   * ---- gating: the release decision ----
+   * Aggregate a run's trial outcomes into metrics and compare the candidate
+   * against the baseline for its (suite, class) under the suite gate policy.
+   * Read-only: computes and stores the GateResult on the run without promoting.
+   *
+   * @generated from rpc gantry.v1.EvalService.EvaluateGate
+   */
+  evaluateGate: {
+    methodKind: "unary";
+    input: typeof EvaluateGateRequestSchema;
+    output: typeof EvaluateGateResponseSchema;
+  },
+  /**
+   * Promote a passed run's candidate to the baseline for its (suite, class).
+   * Idempotent per run (promoting the same run twice is a no-op).
+   *
+   * @generated from rpc gantry.v1.EvalService.PromoteBaseline
+   */
+  promoteBaseline: {
+    methodKind: "unary";
+    input: typeof PromoteBaselineRequestSchema;
+    output: typeof PromoteBaselineResponseSchema;
+  },
+  /**
+   * Fetch the current baseline for a (suite, class). class "" = suite-wide.
+   *
+   * @generated from rpc gantry.v1.EvalService.GetBaseline
+   */
+  getBaseline: {
+    methodKind: "unary";
+    input: typeof GetBaselineRequestSchema;
+    output: typeof GetBaselineResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_gantry_v1_eval, 0);

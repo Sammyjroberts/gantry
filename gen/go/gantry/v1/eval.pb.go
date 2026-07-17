@@ -428,11 +428,16 @@ type Suite struct {
 	// Metric definitions: [ { name, from_check|from_disposition|sql } ].
 	MetricsJson string `protobuf:"bytes,8,opt,name=metrics_json,json=metricsJson,proto3" json:"metrics_json,omitempty"`
 	// Gate policy: [ { metric, op, vs_baseline, margin } ].
-	GateJson      string `protobuf:"bytes,9,opt,name=gate_json,json=gateJson,proto3" json:"gate_json,omitempty"`
-	CreatedNs     uint64 `protobuf:"fixed64,10,opt,name=created_ns,json=createdNs,proto3" json:"created_ns,omitempty"`
-	UpdatedNs     uint64 `protobuf:"fixed64,11,opt,name=updated_ns,json=updatedNs,proto3" json:"updated_ns,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	GateJson  string `protobuf:"bytes,9,opt,name=gate_json,json=gateJson,proto3" json:"gate_json,omitempty"`
+	CreatedNs uint64 `protobuf:"fixed64,10,opt,name=created_ns,json=createdNs,proto3" json:"created_ns,omitempty"`
+	UpdatedNs uint64 `protobuf:"fixed64,11,opt,name=updated_ns,json=updatedNs,proto3" json:"updated_ns,omitempty"`
+	// Station-tag keys that partition baselines within this suite. Empty (the
+	// default) = one champion per suite; e.g. ["arm", "sim"] keeps a separate
+	// champion per arm model and per sim/real. The class of a run is the tuple of
+	// these tag values on the stations it ran (see EvalRun.station_class).
+	BaselineClassKeys []string `protobuf:"bytes,12,rep,name=baseline_class_keys,json=baselineClassKeys,proto3" json:"baseline_class_keys,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Suite) Reset() {
@@ -540,6 +545,13 @@ func (x *Suite) GetUpdatedNs() uint64 {
 		return x.UpdatedNs
 	}
 	return 0
+}
+
+func (x *Suite) GetBaselineClassKeys() []string {
+	if x != nil {
+		return x.BaselineClassKeys
+	}
+	return nil
 }
 
 // A single atomic judgment inside a verdict.
@@ -1056,7 +1068,13 @@ type EvalRun struct {
 	CreatedNs  uint64   `protobuf:"fixed64,9,opt,name=created_ns,json=createdNs,proto3" json:"created_ns,omitempty"`
 	StartedNs  uint64   `protobuf:"fixed64,10,opt,name=started_ns,json=startedNs,proto3" json:"started_ns,omitempty"`
 	// 0 while running.
-	EndedNs       uint64 `protobuf:"fixed64,11,opt,name=ended_ns,json=endedNs,proto3" json:"ended_ns,omitempty"`
+	EndedNs uint64 `protobuf:"fixed64,11,opt,name=ended_ns,json=endedNs,proto3" json:"ended_ns,omitempty"`
+	// The baseline class this run's candidate is compared within (the projection
+	// of the suite's baseline_class_keys over the run's station tags; "" when the
+	// suite declares no class keys).
+	StationClass string `protobuf:"bytes,12,opt,name=station_class,json=stationClass,proto3" json:"station_class,omitempty"`
+	// The gate outcome, populated by EvaluateGate.
+	Gate          *GateResult `protobuf:"bytes,13,opt,name=gate,proto3" json:"gate,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1166,6 +1184,20 @@ func (x *EvalRun) GetEndedNs() uint64 {
 		return x.EndedNs
 	}
 	return 0
+}
+
+func (x *EvalRun) GetStationClass() string {
+	if x != nil {
+		return x.StationClass
+	}
+	return ""
+}
+
+func (x *EvalRun) GetGate() *GateResult {
+	if x != nil {
+		return x.Gate
+	}
+	return nil
 }
 
 type UpsertSuiteRequest struct {
@@ -2167,6 +2199,574 @@ func (x *SubmitVerdictResponse) GetTrial() *Trial {
 	return nil
 }
 
+// The result of one gate check: a candidate metric compared to the baseline.
+type GateCheck struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Metric         string                 `protobuf:"bytes,1,opt,name=metric,proto3" json:"metric,omitempty"`
+	CandidateValue float64                `protobuf:"fixed64,2,opt,name=candidate_value,json=candidateValue,proto3" json:"candidate_value,omitempty"`
+	BaselineValue  float64                `protobuf:"fixed64,3,opt,name=baseline_value,json=baselineValue,proto3" json:"baseline_value,omitempty"`
+	// ">=" | "non_inferior" | "abs>=" | "<=".
+	Op string `protobuf:"bytes,4,opt,name=op,proto3" json:"op,omitempty"`
+	// Non-inferiority / tolerance margin (or absolute floor for "abs>=").
+	Margin float64 `protobuf:"fixed64,5,opt,name=margin,proto3" json:"margin,omitempty"`
+	Passed bool    `protobuf:"varint,6,opt,name=passed,proto3" json:"passed,omitempty"`
+	// Human-readable rationale, e.g. the Wilson interval used.
+	Detail        string `protobuf:"bytes,7,opt,name=detail,proto3" json:"detail,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GateCheck) Reset() {
+	*x = GateCheck{}
+	mi := &file_gantry_v1_eval_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GateCheck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GateCheck) ProtoMessage() {}
+
+func (x *GateCheck) ProtoReflect() protoreflect.Message {
+	mi := &file_gantry_v1_eval_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GateCheck.ProtoReflect.Descriptor instead.
+func (*GateCheck) Descriptor() ([]byte, []int) {
+	return file_gantry_v1_eval_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *GateCheck) GetMetric() string {
+	if x != nil {
+		return x.Metric
+	}
+	return ""
+}
+
+func (x *GateCheck) GetCandidateValue() float64 {
+	if x != nil {
+		return x.CandidateValue
+	}
+	return 0
+}
+
+func (x *GateCheck) GetBaselineValue() float64 {
+	if x != nil {
+		return x.BaselineValue
+	}
+	return 0
+}
+
+func (x *GateCheck) GetOp() string {
+	if x != nil {
+		return x.Op
+	}
+	return ""
+}
+
+func (x *GateCheck) GetMargin() float64 {
+	if x != nil {
+		return x.Margin
+	}
+	return 0
+}
+
+func (x *GateCheck) GetPassed() bool {
+	if x != nil {
+		return x.Passed
+	}
+	return false
+}
+
+func (x *GateCheck) GetDetail() string {
+	if x != nil {
+		return x.Detail
+	}
+	return ""
+}
+
+// The gate outcome for a run: pass iff every check passed and none were
+// inconclusive.
+type GateResult struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Passed bool                   `protobuf:"varint,1,opt,name=passed,proto3" json:"passed,omitempty"`
+	// True when too few trials scored to decide (treated as fail in CI).
+	Inconclusive bool         `protobuf:"varint,2,opt,name=inconclusive,proto3" json:"inconclusive,omitempty"`
+	Checks       []*GateCheck `protobuf:"bytes,3,rep,name=checks,proto3" json:"checks,omitempty"`
+	Candidate    *Subject     `protobuf:"bytes,4,opt,name=candidate,proto3" json:"candidate,omitempty"`
+	Baseline     *Subject     `protobuf:"bytes,5,opt,name=baseline,proto3" json:"baseline,omitempty"`
+	// Trial disposition tallies backing the metrics (VOID excluded from rates).
+	Pass          uint32 `protobuf:"varint,6,opt,name=pass,proto3" json:"pass,omitempty"`
+	Fail          uint32 `protobuf:"varint,7,opt,name=fail,proto3" json:"fail,omitempty"`
+	Void          uint32 `protobuf:"varint,8,opt,name=void,proto3" json:"void,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GateResult) Reset() {
+	*x = GateResult{}
+	mi := &file_gantry_v1_eval_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GateResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GateResult) ProtoMessage() {}
+
+func (x *GateResult) ProtoReflect() protoreflect.Message {
+	mi := &file_gantry_v1_eval_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GateResult.ProtoReflect.Descriptor instead.
+func (*GateResult) Descriptor() ([]byte, []int) {
+	return file_gantry_v1_eval_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *GateResult) GetPassed() bool {
+	if x != nil {
+		return x.Passed
+	}
+	return false
+}
+
+func (x *GateResult) GetInconclusive() bool {
+	if x != nil {
+		return x.Inconclusive
+	}
+	return false
+}
+
+func (x *GateResult) GetChecks() []*GateCheck {
+	if x != nil {
+		return x.Checks
+	}
+	return nil
+}
+
+func (x *GateResult) GetCandidate() *Subject {
+	if x != nil {
+		return x.Candidate
+	}
+	return nil
+}
+
+func (x *GateResult) GetBaseline() *Subject {
+	if x != nil {
+		return x.Baseline
+	}
+	return nil
+}
+
+func (x *GateResult) GetPass() uint32 {
+	if x != nil {
+		return x.Pass
+	}
+	return 0
+}
+
+func (x *GateResult) GetFail() uint32 {
+	if x != nil {
+		return x.Fail
+	}
+	return 0
+}
+
+func (x *GateResult) GetVoid() uint32 {
+	if x != nil {
+		return x.Void
+	}
+	return 0
+}
+
+// The current champion for a (suite, class): what candidates are gated against.
+type Baseline struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	SuiteId string                 `protobuf:"bytes,1,opt,name=suite_id,json=suiteId,proto3" json:"suite_id,omitempty"`
+	// "" = suite-wide (the default when the suite declares no class keys).
+	StationClass string   `protobuf:"bytes,2,opt,name=station_class,json=stationClass,proto3" json:"station_class,omitempty"`
+	Subject      *Subject `protobuf:"bytes,3,opt,name=subject,proto3" json:"subject,omitempty"`
+	// The run that established this baseline.
+	FromRunId string `protobuf:"bytes,4,opt,name=from_run_id,json=fromRunId,proto3" json:"from_run_id,omitempty"`
+	// The champion's recorded success rate (the gate's comparison point).
+	SuccessRate   float64 `protobuf:"fixed64,5,opt,name=success_rate,json=successRate,proto3" json:"success_rate,omitempty"`
+	PromotedNs    uint64  `protobuf:"fixed64,6,opt,name=promoted_ns,json=promotedNs,proto3" json:"promoted_ns,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Baseline) Reset() {
+	*x = Baseline{}
+	mi := &file_gantry_v1_eval_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Baseline) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Baseline) ProtoMessage() {}
+
+func (x *Baseline) ProtoReflect() protoreflect.Message {
+	mi := &file_gantry_v1_eval_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Baseline.ProtoReflect.Descriptor instead.
+func (*Baseline) Descriptor() ([]byte, []int) {
+	return file_gantry_v1_eval_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *Baseline) GetSuiteId() string {
+	if x != nil {
+		return x.SuiteId
+	}
+	return ""
+}
+
+func (x *Baseline) GetStationClass() string {
+	if x != nil {
+		return x.StationClass
+	}
+	return ""
+}
+
+func (x *Baseline) GetSubject() *Subject {
+	if x != nil {
+		return x.Subject
+	}
+	return nil
+}
+
+func (x *Baseline) GetFromRunId() string {
+	if x != nil {
+		return x.FromRunId
+	}
+	return ""
+}
+
+func (x *Baseline) GetSuccessRate() float64 {
+	if x != nil {
+		return x.SuccessRate
+	}
+	return 0
+}
+
+func (x *Baseline) GetPromotedNs() uint64 {
+	if x != nil {
+		return x.PromotedNs
+	}
+	return 0
+}
+
+type EvaluateGateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RunId         string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EvaluateGateRequest) Reset() {
+	*x = EvaluateGateRequest{}
+	mi := &file_gantry_v1_eval_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EvaluateGateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EvaluateGateRequest) ProtoMessage() {}
+
+func (x *EvaluateGateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gantry_v1_eval_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EvaluateGateRequest.ProtoReflect.Descriptor instead.
+func (*EvaluateGateRequest) Descriptor() ([]byte, []int) {
+	return file_gantry_v1_eval_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *EvaluateGateRequest) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
+}
+
+type EvaluateGateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Result        *GateResult            `protobuf:"bytes,1,opt,name=result,proto3" json:"result,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EvaluateGateResponse) Reset() {
+	*x = EvaluateGateResponse{}
+	mi := &file_gantry_v1_eval_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EvaluateGateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EvaluateGateResponse) ProtoMessage() {}
+
+func (x *EvaluateGateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gantry_v1_eval_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EvaluateGateResponse.ProtoReflect.Descriptor instead.
+func (*EvaluateGateResponse) Descriptor() ([]byte, []int) {
+	return file_gantry_v1_eval_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *EvaluateGateResponse) GetResult() *GateResult {
+	if x != nil {
+		return x.Result
+	}
+	return nil
+}
+
+type PromoteBaselineRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	RunId          string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	IdempotencyKey string                 `protobuf:"bytes,2,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *PromoteBaselineRequest) Reset() {
+	*x = PromoteBaselineRequest{}
+	mi := &file_gantry_v1_eval_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PromoteBaselineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PromoteBaselineRequest) ProtoMessage() {}
+
+func (x *PromoteBaselineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gantry_v1_eval_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PromoteBaselineRequest.ProtoReflect.Descriptor instead.
+func (*PromoteBaselineRequest) Descriptor() ([]byte, []int) {
+	return file_gantry_v1_eval_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *PromoteBaselineRequest) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
+}
+
+func (x *PromoteBaselineRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+type PromoteBaselineResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Baseline      *Baseline              `protobuf:"bytes,1,opt,name=baseline,proto3" json:"baseline,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PromoteBaselineResponse) Reset() {
+	*x = PromoteBaselineResponse{}
+	mi := &file_gantry_v1_eval_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PromoteBaselineResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PromoteBaselineResponse) ProtoMessage() {}
+
+func (x *PromoteBaselineResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gantry_v1_eval_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PromoteBaselineResponse.ProtoReflect.Descriptor instead.
+func (*PromoteBaselineResponse) Descriptor() ([]byte, []int) {
+	return file_gantry_v1_eval_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *PromoteBaselineResponse) GetBaseline() *Baseline {
+	if x != nil {
+		return x.Baseline
+	}
+	return nil
+}
+
+type GetBaselineRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SuiteId       string                 `protobuf:"bytes,1,opt,name=suite_id,json=suiteId,proto3" json:"suite_id,omitempty"`
+	StationClass  string                 `protobuf:"bytes,2,opt,name=station_class,json=stationClass,proto3" json:"station_class,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBaselineRequest) Reset() {
+	*x = GetBaselineRequest{}
+	mi := &file_gantry_v1_eval_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBaselineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBaselineRequest) ProtoMessage() {}
+
+func (x *GetBaselineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gantry_v1_eval_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBaselineRequest.ProtoReflect.Descriptor instead.
+func (*GetBaselineRequest) Descriptor() ([]byte, []int) {
+	return file_gantry_v1_eval_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *GetBaselineRequest) GetSuiteId() string {
+	if x != nil {
+		return x.SuiteId
+	}
+	return ""
+}
+
+func (x *GetBaselineRequest) GetStationClass() string {
+	if x != nil {
+		return x.StationClass
+	}
+	return ""
+}
+
+type GetBaselineResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Baseline      *Baseline              `protobuf:"bytes,1,opt,name=baseline,proto3" json:"baseline,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBaselineResponse) Reset() {
+	*x = GetBaselineResponse{}
+	mi := &file_gantry_v1_eval_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBaselineResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBaselineResponse) ProtoMessage() {}
+
+func (x *GetBaselineResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gantry_v1_eval_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBaselineResponse.ProtoReflect.Descriptor instead.
+func (*GetBaselineResponse) Descriptor() ([]byte, []int) {
+	return file_gantry_v1_eval_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *GetBaselineResponse) GetBaseline() *Baseline {
+	if x != nil {
+		return x.Baseline
+	}
+	return nil
+}
+
 var File_gantry_v1_eval_proto protoreflect.FileDescriptor
 
 const file_gantry_v1_eval_proto_rawDesc = "" +
@@ -2185,7 +2785,7 @@ const file_gantry_v1_eval_proto_rawDesc = "" +
 	"paramsJson\x12!\n" +
 	"\ftrial_budget\x18\x04 \x01(\rR\vtrialBudget\x12\x1d\n" +
 	"\n" +
-	"min_scored\x18\x05 \x01(\rR\tminScored\"\xf5\x02\n" +
+	"min_scored\x18\x05 \x01(\rR\tminScored\"\xa5\x03\n" +
 	"\x05Suite\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
@@ -2201,7 +2801,8 @@ const file_gantry_v1_eval_proto_rawDesc = "" +
 	"created_ns\x18\n" +
 	" \x01(\x06R\tcreatedNs\x12\x1d\n" +
 	"\n" +
-	"updated_ns\x18\v \x01(\x06R\tupdatedNs\"\xb6\x02\n" +
+	"updated_ns\x18\v \x01(\x06R\tupdatedNs\x12.\n" +
+	"\x13baseline_class_keys\x18\f \x03(\tR\x11baselineClassKeys\"\xb6\x02\n" +
 	"\x05Check\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12&\n" +
 	"\x05phase\x18\x02 \x01(\x0e2\x10.gantry.v1.PhaseR\x05phase\x12\x1a\n" +
@@ -2253,7 +2854,7 @@ const file_gantry_v1_eval_proto_rawDesc = "" +
 	" \x01(\x06R\tstartedNs\x12\x19\n" +
 	"\bended_ns\x18\v \x01(\x06R\aendedNs\x12\x1d\n" +
 	"\n" +
-	"station_id\x18\f \x01(\tR\tstationId\"\x83\x03\n" +
+	"station_id\x18\f \x01(\tR\tstationId\"\xd3\x03\n" +
 	"\aEvalRun\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bsuite_id\x18\x02 \x01(\tR\asuiteId\x120\n" +
@@ -2269,7 +2870,9 @@ const file_gantry_v1_eval_proto_rawDesc = "" +
 	"\n" +
 	"started_ns\x18\n" +
 	" \x01(\x06R\tstartedNs\x12\x19\n" +
-	"\bended_ns\x18\v \x01(\x06R\aendedNs\"<\n" +
+	"\bended_ns\x18\v \x01(\x06R\aendedNs\x12#\n" +
+	"\rstation_class\x18\f \x01(\tR\fstationClass\x12)\n" +
+	"\x04gate\x18\r \x01(\v2\x15.gantry.v1.GateResultR\x04gate\"<\n" +
 	"\x12UpsertSuiteRequest\x12&\n" +
 	"\x05suite\x18\x01 \x01(\v2\x10.gantry.v1.SuiteR\x05suite\"=\n" +
 	"\x13UpsertSuiteResponse\x12&\n" +
@@ -2325,7 +2928,47 @@ const file_gantry_v1_eval_proto_rawDesc = "" +
 	"\averdict\x18\x02 \x01(\v2\x12.gantry.v1.VerdictR\averdict\x12'\n" +
 	"\x0fidempotency_key\x18\x03 \x01(\tR\x0eidempotencyKey\"?\n" +
 	"\x15SubmitVerdictResponse\x12&\n" +
-	"\x05trial\x18\x01 \x01(\v2\x10.gantry.v1.TrialR\x05trial*[\n" +
+	"\x05trial\x18\x01 \x01(\v2\x10.gantry.v1.TrialR\x05trial\"\xcb\x01\n" +
+	"\tGateCheck\x12\x16\n" +
+	"\x06metric\x18\x01 \x01(\tR\x06metric\x12'\n" +
+	"\x0fcandidate_value\x18\x02 \x01(\x01R\x0ecandidateValue\x12%\n" +
+	"\x0ebaseline_value\x18\x03 \x01(\x01R\rbaselineValue\x12\x0e\n" +
+	"\x02op\x18\x04 \x01(\tR\x02op\x12\x16\n" +
+	"\x06margin\x18\x05 \x01(\x01R\x06margin\x12\x16\n" +
+	"\x06passed\x18\x06 \x01(\bR\x06passed\x12\x16\n" +
+	"\x06detail\x18\a \x01(\tR\x06detail\"\x94\x02\n" +
+	"\n" +
+	"GateResult\x12\x16\n" +
+	"\x06passed\x18\x01 \x01(\bR\x06passed\x12\"\n" +
+	"\finconclusive\x18\x02 \x01(\bR\finconclusive\x12,\n" +
+	"\x06checks\x18\x03 \x03(\v2\x14.gantry.v1.GateCheckR\x06checks\x120\n" +
+	"\tcandidate\x18\x04 \x01(\v2\x12.gantry.v1.SubjectR\tcandidate\x12.\n" +
+	"\bbaseline\x18\x05 \x01(\v2\x12.gantry.v1.SubjectR\bbaseline\x12\x12\n" +
+	"\x04pass\x18\x06 \x01(\rR\x04pass\x12\x12\n" +
+	"\x04fail\x18\a \x01(\rR\x04fail\x12\x12\n" +
+	"\x04void\x18\b \x01(\rR\x04void\"\xdc\x01\n" +
+	"\bBaseline\x12\x19\n" +
+	"\bsuite_id\x18\x01 \x01(\tR\asuiteId\x12#\n" +
+	"\rstation_class\x18\x02 \x01(\tR\fstationClass\x12,\n" +
+	"\asubject\x18\x03 \x01(\v2\x12.gantry.v1.SubjectR\asubject\x12\x1e\n" +
+	"\vfrom_run_id\x18\x04 \x01(\tR\tfromRunId\x12!\n" +
+	"\fsuccess_rate\x18\x05 \x01(\x01R\vsuccessRate\x12\x1f\n" +
+	"\vpromoted_ns\x18\x06 \x01(\x06R\n" +
+	"promotedNs\",\n" +
+	"\x13EvaluateGateRequest\x12\x15\n" +
+	"\x06run_id\x18\x01 \x01(\tR\x05runId\"E\n" +
+	"\x14EvaluateGateResponse\x12-\n" +
+	"\x06result\x18\x01 \x01(\v2\x15.gantry.v1.GateResultR\x06result\"X\n" +
+	"\x16PromoteBaselineRequest\x12\x15\n" +
+	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12'\n" +
+	"\x0fidempotency_key\x18\x02 \x01(\tR\x0eidempotencyKey\"J\n" +
+	"\x17PromoteBaselineResponse\x12/\n" +
+	"\bbaseline\x18\x01 \x01(\v2\x13.gantry.v1.BaselineR\bbaseline\"T\n" +
+	"\x12GetBaselineRequest\x12\x19\n" +
+	"\bsuite_id\x18\x01 \x01(\tR\asuiteId\x12#\n" +
+	"\rstation_class\x18\x02 \x01(\tR\fstationClass\"F\n" +
+	"\x13GetBaselineResponse\x12/\n" +
+	"\bbaseline\x18\x01 \x01(\v2\x13.gantry.v1.BaselineR\bbaseline*[\n" +
 	"\x05Phase\x12\x15\n" +
 	"\x11PHASE_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12PHASE_PRECONDITION\x10\x01\x12\x10\n" +
@@ -2347,7 +2990,7 @@ const file_gantry_v1_eval_proto_rawDesc = "" +
 	"\x11RUN_STATUS_SCORED\x10\x03\x12\x14\n" +
 	"\x10RUN_STATUS_GATED\x10\x04\x12\x13\n" +
 	"\x0fRUN_STATUS_DONE\x10\x05\x12\x15\n" +
-	"\x11RUN_STATUS_FAILED\x10\x062\xf5\x05\n" +
+	"\x11RUN_STATUS_FAILED\x10\x062\xee\a\n" +
 	"\vEvalService\x12L\n" +
 	"\vUpsertSuite\x12\x1d.gantry.v1.UpsertSuiteRequest\x1a\x1e.gantry.v1.UpsertSuiteResponse\x12I\n" +
 	"\n" +
@@ -2360,7 +3003,10 @@ const file_gantry_v1_eval_proto_rawDesc = "" +
 	"\tOpenTrial\x12\x1b.gantry.v1.OpenTrialRequest\x1a\x1c.gantry.v1.OpenTrialResponse\x12I\n" +
 	"\n" +
 	"CloseTrial\x12\x1c.gantry.v1.CloseTrialRequest\x1a\x1d.gantry.v1.CloseTrialResponse\x12R\n" +
-	"\rSubmitVerdict\x12\x1f.gantry.v1.SubmitVerdictRequest\x1a .gantry.v1.SubmitVerdictResponseB\x9a\x01\n" +
+	"\rSubmitVerdict\x12\x1f.gantry.v1.SubmitVerdictRequest\x1a .gantry.v1.SubmitVerdictResponse\x12O\n" +
+	"\fEvaluateGate\x12\x1e.gantry.v1.EvaluateGateRequest\x1a\x1f.gantry.v1.EvaluateGateResponse\x12X\n" +
+	"\x0fPromoteBaseline\x12!.gantry.v1.PromoteBaselineRequest\x1a\".gantry.v1.PromoteBaselineResponse\x12L\n" +
+	"\vGetBaseline\x12\x1d.gantry.v1.GetBaselineRequest\x1a\x1e.gantry.v1.GetBaselineResponseB\x9a\x01\n" +
 	"\rcom.gantry.v1B\tEvalProtoP\x01Z9github.com/Sammyjroberts/gantry/gen/go/gantry/v1;gantryv1\xa2\x02\x03GXX\xaa\x02\tGantry.V1\xca\x02\tGantry\\V1\xe2\x02\x15Gantry\\V1\\GPBMetadata\xea\x02\n" +
 	"Gantry::V1b\x06proto3"
 
@@ -2377,7 +3023,7 @@ func file_gantry_v1_eval_proto_rawDescGZIP() []byte {
 }
 
 var file_gantry_v1_eval_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_gantry_v1_eval_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_gantry_v1_eval_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
 var file_gantry_v1_eval_proto_goTypes = []any{
 	(Phase)(0),                      // 0: gantry.v1.Phase
 	(CheckKind)(0),                  // 1: gantry.v1.CheckKind
@@ -2412,7 +3058,16 @@ var file_gantry_v1_eval_proto_goTypes = []any{
 	(*CloseTrialResponse)(nil),      // 30: gantry.v1.CloseTrialResponse
 	(*SubmitVerdictRequest)(nil),    // 31: gantry.v1.SubmitVerdictRequest
 	(*SubmitVerdictResponse)(nil),   // 32: gantry.v1.SubmitVerdictResponse
-	nil,                             // 33: gantry.v1.TrialOutcome.MetricsEntry
+	(*GateCheck)(nil),               // 33: gantry.v1.GateCheck
+	(*GateResult)(nil),              // 34: gantry.v1.GateResult
+	(*Baseline)(nil),                // 35: gantry.v1.Baseline
+	(*EvaluateGateRequest)(nil),     // 36: gantry.v1.EvaluateGateRequest
+	(*EvaluateGateResponse)(nil),    // 37: gantry.v1.EvaluateGateResponse
+	(*PromoteBaselineRequest)(nil),  // 38: gantry.v1.PromoteBaselineRequest
+	(*PromoteBaselineResponse)(nil), // 39: gantry.v1.PromoteBaselineResponse
+	(*GetBaselineRequest)(nil),      // 40: gantry.v1.GetBaselineRequest
+	(*GetBaselineResponse)(nil),     // 41: gantry.v1.GetBaselineResponse
+	nil,                             // 42: gantry.v1.TrialOutcome.MetricsEntry
 }
 var file_gantry_v1_eval_proto_depIdxs = []int32{
 	5,  // 0: gantry.v1.Suite.scenarios:type_name -> gantry.v1.Scenario
@@ -2421,52 +3076,66 @@ var file_gantry_v1_eval_proto_depIdxs = []int32{
 	8,  // 3: gantry.v1.Verdict.scored_from:type_name -> gantry.v1.ScoredEvidence
 	7,  // 4: gantry.v1.Verdict.checks:type_name -> gantry.v1.Check
 	2,  // 5: gantry.v1.TrialOutcome.disposition:type_name -> gantry.v1.Disposition
-	33, // 6: gantry.v1.TrialOutcome.metrics:type_name -> gantry.v1.TrialOutcome.MetricsEntry
+	42, // 6: gantry.v1.TrialOutcome.metrics:type_name -> gantry.v1.TrialOutcome.MetricsEntry
 	9,  // 7: gantry.v1.Trial.verdicts:type_name -> gantry.v1.Verdict
 	10, // 8: gantry.v1.Trial.outcome:type_name -> gantry.v1.TrialOutcome
 	4,  // 9: gantry.v1.EvalRun.candidate:type_name -> gantry.v1.Subject
 	4,  // 10: gantry.v1.EvalRun.baseline:type_name -> gantry.v1.Subject
 	3,  // 11: gantry.v1.EvalRun.status:type_name -> gantry.v1.RunStatus
-	6,  // 12: gantry.v1.UpsertSuiteRequest.suite:type_name -> gantry.v1.Suite
-	6,  // 13: gantry.v1.UpsertSuiteResponse.suite:type_name -> gantry.v1.Suite
-	6,  // 14: gantry.v1.ListSuitesResponse.suites:type_name -> gantry.v1.Suite
-	6,  // 15: gantry.v1.GetSuiteResponse.suite:type_name -> gantry.v1.Suite
-	4,  // 16: gantry.v1.RegisterSubjectRequest.subject:type_name -> gantry.v1.Subject
-	4,  // 17: gantry.v1.RegisterSubjectResponse.subject:type_name -> gantry.v1.Subject
-	4,  // 18: gantry.v1.StartRunRequest.candidate:type_name -> gantry.v1.Subject
-	12, // 19: gantry.v1.StartRunResponse.run:type_name -> gantry.v1.EvalRun
-	12, // 20: gantry.v1.ListRunsResponse.runs:type_name -> gantry.v1.EvalRun
-	12, // 21: gantry.v1.GetRunResponse.run:type_name -> gantry.v1.EvalRun
-	11, // 22: gantry.v1.GetRunResponse.trials:type_name -> gantry.v1.Trial
-	11, // 23: gantry.v1.OpenTrialResponse.trial:type_name -> gantry.v1.Trial
-	11, // 24: gantry.v1.CloseTrialResponse.trial:type_name -> gantry.v1.Trial
-	9,  // 25: gantry.v1.SubmitVerdictRequest.verdict:type_name -> gantry.v1.Verdict
-	11, // 26: gantry.v1.SubmitVerdictResponse.trial:type_name -> gantry.v1.Trial
-	13, // 27: gantry.v1.EvalService.UpsertSuite:input_type -> gantry.v1.UpsertSuiteRequest
-	15, // 28: gantry.v1.EvalService.ListSuites:input_type -> gantry.v1.ListSuitesRequest
-	17, // 29: gantry.v1.EvalService.GetSuite:input_type -> gantry.v1.GetSuiteRequest
-	19, // 30: gantry.v1.EvalService.RegisterSubject:input_type -> gantry.v1.RegisterSubjectRequest
-	21, // 31: gantry.v1.EvalService.StartRun:input_type -> gantry.v1.StartRunRequest
-	23, // 32: gantry.v1.EvalService.ListRuns:input_type -> gantry.v1.ListRunsRequest
-	25, // 33: gantry.v1.EvalService.GetRun:input_type -> gantry.v1.GetRunRequest
-	27, // 34: gantry.v1.EvalService.OpenTrial:input_type -> gantry.v1.OpenTrialRequest
-	29, // 35: gantry.v1.EvalService.CloseTrial:input_type -> gantry.v1.CloseTrialRequest
-	31, // 36: gantry.v1.EvalService.SubmitVerdict:input_type -> gantry.v1.SubmitVerdictRequest
-	14, // 37: gantry.v1.EvalService.UpsertSuite:output_type -> gantry.v1.UpsertSuiteResponse
-	16, // 38: gantry.v1.EvalService.ListSuites:output_type -> gantry.v1.ListSuitesResponse
-	18, // 39: gantry.v1.EvalService.GetSuite:output_type -> gantry.v1.GetSuiteResponse
-	20, // 40: gantry.v1.EvalService.RegisterSubject:output_type -> gantry.v1.RegisterSubjectResponse
-	22, // 41: gantry.v1.EvalService.StartRun:output_type -> gantry.v1.StartRunResponse
-	24, // 42: gantry.v1.EvalService.ListRuns:output_type -> gantry.v1.ListRunsResponse
-	26, // 43: gantry.v1.EvalService.GetRun:output_type -> gantry.v1.GetRunResponse
-	28, // 44: gantry.v1.EvalService.OpenTrial:output_type -> gantry.v1.OpenTrialResponse
-	30, // 45: gantry.v1.EvalService.CloseTrial:output_type -> gantry.v1.CloseTrialResponse
-	32, // 46: gantry.v1.EvalService.SubmitVerdict:output_type -> gantry.v1.SubmitVerdictResponse
-	37, // [37:47] is the sub-list for method output_type
-	27, // [27:37] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	34, // 12: gantry.v1.EvalRun.gate:type_name -> gantry.v1.GateResult
+	6,  // 13: gantry.v1.UpsertSuiteRequest.suite:type_name -> gantry.v1.Suite
+	6,  // 14: gantry.v1.UpsertSuiteResponse.suite:type_name -> gantry.v1.Suite
+	6,  // 15: gantry.v1.ListSuitesResponse.suites:type_name -> gantry.v1.Suite
+	6,  // 16: gantry.v1.GetSuiteResponse.suite:type_name -> gantry.v1.Suite
+	4,  // 17: gantry.v1.RegisterSubjectRequest.subject:type_name -> gantry.v1.Subject
+	4,  // 18: gantry.v1.RegisterSubjectResponse.subject:type_name -> gantry.v1.Subject
+	4,  // 19: gantry.v1.StartRunRequest.candidate:type_name -> gantry.v1.Subject
+	12, // 20: gantry.v1.StartRunResponse.run:type_name -> gantry.v1.EvalRun
+	12, // 21: gantry.v1.ListRunsResponse.runs:type_name -> gantry.v1.EvalRun
+	12, // 22: gantry.v1.GetRunResponse.run:type_name -> gantry.v1.EvalRun
+	11, // 23: gantry.v1.GetRunResponse.trials:type_name -> gantry.v1.Trial
+	11, // 24: gantry.v1.OpenTrialResponse.trial:type_name -> gantry.v1.Trial
+	11, // 25: gantry.v1.CloseTrialResponse.trial:type_name -> gantry.v1.Trial
+	9,  // 26: gantry.v1.SubmitVerdictRequest.verdict:type_name -> gantry.v1.Verdict
+	11, // 27: gantry.v1.SubmitVerdictResponse.trial:type_name -> gantry.v1.Trial
+	33, // 28: gantry.v1.GateResult.checks:type_name -> gantry.v1.GateCheck
+	4,  // 29: gantry.v1.GateResult.candidate:type_name -> gantry.v1.Subject
+	4,  // 30: gantry.v1.GateResult.baseline:type_name -> gantry.v1.Subject
+	4,  // 31: gantry.v1.Baseline.subject:type_name -> gantry.v1.Subject
+	34, // 32: gantry.v1.EvaluateGateResponse.result:type_name -> gantry.v1.GateResult
+	35, // 33: gantry.v1.PromoteBaselineResponse.baseline:type_name -> gantry.v1.Baseline
+	35, // 34: gantry.v1.GetBaselineResponse.baseline:type_name -> gantry.v1.Baseline
+	13, // 35: gantry.v1.EvalService.UpsertSuite:input_type -> gantry.v1.UpsertSuiteRequest
+	15, // 36: gantry.v1.EvalService.ListSuites:input_type -> gantry.v1.ListSuitesRequest
+	17, // 37: gantry.v1.EvalService.GetSuite:input_type -> gantry.v1.GetSuiteRequest
+	19, // 38: gantry.v1.EvalService.RegisterSubject:input_type -> gantry.v1.RegisterSubjectRequest
+	21, // 39: gantry.v1.EvalService.StartRun:input_type -> gantry.v1.StartRunRequest
+	23, // 40: gantry.v1.EvalService.ListRuns:input_type -> gantry.v1.ListRunsRequest
+	25, // 41: gantry.v1.EvalService.GetRun:input_type -> gantry.v1.GetRunRequest
+	27, // 42: gantry.v1.EvalService.OpenTrial:input_type -> gantry.v1.OpenTrialRequest
+	29, // 43: gantry.v1.EvalService.CloseTrial:input_type -> gantry.v1.CloseTrialRequest
+	31, // 44: gantry.v1.EvalService.SubmitVerdict:input_type -> gantry.v1.SubmitVerdictRequest
+	36, // 45: gantry.v1.EvalService.EvaluateGate:input_type -> gantry.v1.EvaluateGateRequest
+	38, // 46: gantry.v1.EvalService.PromoteBaseline:input_type -> gantry.v1.PromoteBaselineRequest
+	40, // 47: gantry.v1.EvalService.GetBaseline:input_type -> gantry.v1.GetBaselineRequest
+	14, // 48: gantry.v1.EvalService.UpsertSuite:output_type -> gantry.v1.UpsertSuiteResponse
+	16, // 49: gantry.v1.EvalService.ListSuites:output_type -> gantry.v1.ListSuitesResponse
+	18, // 50: gantry.v1.EvalService.GetSuite:output_type -> gantry.v1.GetSuiteResponse
+	20, // 51: gantry.v1.EvalService.RegisterSubject:output_type -> gantry.v1.RegisterSubjectResponse
+	22, // 52: gantry.v1.EvalService.StartRun:output_type -> gantry.v1.StartRunResponse
+	24, // 53: gantry.v1.EvalService.ListRuns:output_type -> gantry.v1.ListRunsResponse
+	26, // 54: gantry.v1.EvalService.GetRun:output_type -> gantry.v1.GetRunResponse
+	28, // 55: gantry.v1.EvalService.OpenTrial:output_type -> gantry.v1.OpenTrialResponse
+	30, // 56: gantry.v1.EvalService.CloseTrial:output_type -> gantry.v1.CloseTrialResponse
+	32, // 57: gantry.v1.EvalService.SubmitVerdict:output_type -> gantry.v1.SubmitVerdictResponse
+	37, // 58: gantry.v1.EvalService.EvaluateGate:output_type -> gantry.v1.EvaluateGateResponse
+	39, // 59: gantry.v1.EvalService.PromoteBaseline:output_type -> gantry.v1.PromoteBaselineResponse
+	41, // 60: gantry.v1.EvalService.GetBaseline:output_type -> gantry.v1.GetBaselineResponse
+	48, // [48:61] is the sub-list for method output_type
+	35, // [35:48] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_gantry_v1_eval_proto_init() }
@@ -2480,7 +3149,7 @@ func file_gantry_v1_eval_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gantry_v1_eval_proto_rawDesc), len(file_gantry_v1_eval_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   30,
+			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
