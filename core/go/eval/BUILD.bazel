@@ -3,7 +3,10 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "eval",
     srcs = [
+        "combine.go",
+        "gate.go",
         "handler.go",
+        "metrics.go",
         "service.go",
         "store.go",
     ],
