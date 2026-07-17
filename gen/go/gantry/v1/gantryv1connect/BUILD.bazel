@@ -4,6 +4,7 @@ go_library(
     name = "gantryv1connect",
     srcs = [
         "auth.connect.go",
+        "eval.connect.go",
         "experiment.connect.go",
         "hardware.connect.go",
         "ingest.connect.go",
