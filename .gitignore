@@ -41,3 +41,8 @@ data/
 /test_eav/
 /lab/
 /docs/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
