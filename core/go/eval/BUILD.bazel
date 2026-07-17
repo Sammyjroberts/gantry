@@ -1,0 +1,30 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "eval",
+    srcs = [
+        "handler.go",
+        "service.go",
+        "store.go",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/core/go/eval",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//gen/go/gantry/v1:gantry",
+        "//gen/go/gantry/v1/gantryv1connect",
+        "@com_connectrpc_connect//:connect",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_test(
+    name = "eval_test",
+    srcs = ["eval_test.go"],
+    deps = [
+        ":eval",
+        "//core/go/benchdb",
+        "//core/go/experiments",
+        "//gen/go/gantry/v1:gantry",
+    ],
+)
