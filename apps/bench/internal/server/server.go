@@ -16,6 +16,7 @@ import (
 	"github.com/Sammyjroberts/gantry/core/go/auth"
 	"github.com/Sammyjroberts/gantry/core/go/benchdb"
 	"github.com/Sammyjroberts/gantry/core/go/blob"
+	"github.com/Sammyjroberts/gantry/core/go/eval"
 	"github.com/Sammyjroberts/gantry/core/go/experiments"
 	"github.com/Sammyjroberts/gantry/core/go/hardware"
 	"github.com/Sammyjroberts/gantry/core/go/ingest"
@@ -147,6 +148,11 @@ func New(ctx context.Context, storeDir string, opts ...Option) (*App, error) {
 	authStore := auth.NewStore(db)
 	authSvc := auth.NewServiceWithStore(authStore)
 	tokPath, tokHandler := gantryv1connect.NewTokenServiceHandler(auth.NewHandler(authSvc))
+	// Evals & release gating: reusable test suites → runs → trials. Each trial is
+	// bracketed as an experiment via the shared expSvc, so a trial's telemetry
+	// range is a first-class experiment (listable, exportable, SQL-queryable).
+	evalSvc := eval.NewService(db, expSvc)
+	evalPath, evalHandler := gantryv1connect.NewEvalServiceHandler(eval.NewHandler(evalSvc))
 	mux.Handle(ingestPath, ingestHandler)
 	mux.Handle(livePath, liveHandler)
 	mux.Handle(expPath, expHandler)
@@ -155,6 +161,7 @@ func New(ctx context.Context, storeDir string, opts ...Option) (*App, error) {
 	mux.Handle(wsPath, wsHandler)
 	mux.Handle(srcPath, srcHandler)
 	mux.Handle(tokPath, tokHandler)
+	mux.Handle(evalPath, evalHandler)
 
 	// Chunked video catalog + per-device model files (plain HTTP; see the
 	// register funcs for the URL surface). SQL over the segment store when a
