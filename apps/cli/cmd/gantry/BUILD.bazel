@@ -1,0 +1,21 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "gantry_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/Sammyjroberts/gantry/apps/cli/cmd/gantry",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//apps/cli/internal/report",
+        "//gen/go/gantry/v1:gantry",
+        "//gen/go/gantry/v1/gantryv1connect",
+        "@com_connectrpc_connect//:connect",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)
+
+go_binary(
+    name = "gantry",
+    embed = [":gantry_lib"],
+    visibility = ["//visibility:public"],
+)
