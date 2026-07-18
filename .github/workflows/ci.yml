@@ -78,6 +78,7 @@ jobs:
               - '.github/workflows/ci.yml'
             python:
               - 'examples/so101/**'
+              - 'adapters/foxglove/**'
               - '.github/workflows/ci.yml'
 
   # ---------------------------------------------------------------------------
@@ -284,9 +285,11 @@ jobs:
         with:
           python-version: "3.12"
       - name: install test deps
-        run: pip install pyserial pytest
+        run: pip install pyserial pytest websockets av numpy
       - name: pytest so101 kit
         run: python -m pytest examples/so101 -q
+      - name: pytest foxglove adapter
+        run: python -m pytest adapters/foxglove -q
 
   # ---------------------------------------------------------------------------
   # Aggregate gate: a single required check that passes only if no needed job

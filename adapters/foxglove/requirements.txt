@@ -1,0 +1,11 @@
+# gantry-foxglove adapter dependencies.
+#
+# Required: the WebSocket client/server library used by the tap and its tests.
+websockets>=12
+
+# Optional: PyAV enables the image -> video tee (JPEG camera frames re-encoded
+# to rolling MP4 chunks and POSTed to Gantry's /video/chunks). Without it the
+# adapter runs scalars-only and logs that the tee is disabled.
+#   pip install av
+#
+# av
