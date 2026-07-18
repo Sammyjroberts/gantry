@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package gantry.v1;
+
+// Telemetry sources: connections the Bench itself maintains to pull telemetry
+// in from external publishers — the first kind being a Foxglove WebSocket
+// server (lerobot --display_mode=foxglove, ROS 2 foxglove_bridge). Configured
+// in the UI, persisted server-side, supervised in-process (connect, decode,
+// map, ingest, reconnect with backoff). This replaces running a separate tap
+// process for the common case.
+service SourceService {
+  rpc ListSources(ListSourcesRequest) returns (ListSourcesResponse);
+  rpc UpsertSource(UpsertSourceRequest) returns (UpsertSourceResponse);
+  rpc DeleteSource(DeleteSourceRequest) returns (DeleteSourceResponse);
+}
+
+message Source {
+  string id = 1;
+  // "foxglove" is the only type today; the field exists so future source
+  // kinds (mqtt, rtsp, ...) reuse this service.
+  string type = 2;
+  string name = 3;
+  // e.g. "ws://127.0.0.1:8765"
+  string url = 4;
+  // Mapping document (versioned JSON, console-owned schema): a named profile
+  // reference like {"profile":"lerobot"} or explicit rules matching the
+  // adapters/foxglove mapping format.
+  string mapping_json = 5;
+  bool enabled = 6;
+  fixed64 created_ns = 7;
+  fixed64 updated_ns = 8;
+}
+
+// Live status, derived (not stored): the supervisor's view of each source.
+message SourceStatus {
+  string id = 1;
+  // "disabled" | "connecting" | "connected" | "backoff"
+  string state = 2;
+  string detail = 3;
+  fixed64 last_frame_ns = 4;
+  uint64 frames_ingested = 5;
+  uint64 reconnects = 6;
+}
+
+message ListSourcesRequest {}
+
+message ListSourcesResponse {
+  repeated Source sources = 1;
+  repeated SourceStatus statuses = 2;
+}
+
+message UpsertSourceRequest {
+  Source source = 1;
+}
+
+message UpsertSourceResponse {
+  Source source = 1;
+}
+
+message DeleteSourceRequest {
+  string id = 1;
+}
+
+message DeleteSourceResponse {}
