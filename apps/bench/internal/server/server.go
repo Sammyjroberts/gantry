@@ -22,6 +22,7 @@ import (
 	"github.com/Sammyjroberts/gantry/core/go/mcp"
 	"github.com/Sammyjroberts/gantry/core/go/models"
 	"github.com/Sammyjroberts/gantry/core/go/registry"
+	"github.com/Sammyjroberts/gantry/core/go/source"
 	"github.com/Sammyjroberts/gantry/core/go/stream"
 	"github.com/Sammyjroberts/gantry/core/go/video"
 	"github.com/Sammyjroberts/gantry/core/go/workspace"
@@ -36,6 +37,7 @@ type App struct {
 	engine      *ingest.Engine
 	db          *sql.DB
 	persistence *Persistence
+	sources     *source.Supervisor
 	cancelBg    context.CancelFunc
 	handler     http.Handler
 	srv         *http.Server
@@ -132,6 +134,13 @@ func New(ctx context.Context, storeDir string, opts ...Option) (*App, error) {
 	// experiments/hardware.
 	wsSvc := workspace.NewService(db)
 	wsPath, wsHandler := gantryv1connect.NewWorkspaceServiceHandler(workspace.NewHandler(wsSvc))
+	// Telemetry sources: bench-managed in-process Foxglove clients (connect,
+	// decode, map, ingest, reconnect). The supervisor shares the ingest engine as
+	// its sink and its lifecycle runs on the background context (started below,
+	// stopped in Shutdown), like the segment flusher and video janitor.
+	srcSvc := source.NewService(db)
+	srcSup := source.NewSupervisor(srcSvc.Store(), engine)
+	srcPath, srcHandler := gantryv1connect.NewSourceServiceHandler(source.NewHandler(srcSvc, srcSup))
 	// Access tokens: named, scoped bearer credentials for non-loopback callers.
 	// The Service and the middleware Verifier share ONE Store so the last-used
 	// throttle and clock are consistent across creation and verification.
@@ -144,6 +153,7 @@ func New(ctx context.Context, storeDir string, opts ...Option) (*App, error) {
 	mux.Handle(queryPath, queryHandler)
 	mux.Handle(hwPath, hwHandler)
 	mux.Handle(wsPath, wsHandler)
+	mux.Handle(srcPath, srcHandler)
 	mux.Handle(tokPath, tokHandler)
 
 	// Chunked video catalog + per-device model files (plain HTTP; see the
@@ -184,6 +194,15 @@ func New(ctx context.Context, storeDir string, opts ...Option) (*App, error) {
 	}
 	mux.Handle("/", spa)
 
+	// Connect every enabled telemetry source now; the supervisor keeps them alive
+	// (reconnect with backoff) on the background context until Shutdown.
+	if err := srcSup.Start(bgCtx); err != nil {
+		cancelBg()
+		_ = db.Close()
+		bus.Close()
+		return nil, err
+	}
+
 	// Auth guards every network surface. CORS is OUTERMOST so that (a) a browser
 	// preflight OPTIONS is answered without a token, and (b) 401/403 responses
 	// still carry CORS headers a cross-origin dev client needs to READ the status
@@ -197,7 +216,7 @@ func New(ctx context.Context, storeDir string, opts ...Option) (*App, error) {
 	h2s := &http2.Server{}
 	handler = h2c.NewHandler(handler, h2s)
 
-	return &App{bus: bus, engine: engine, db: db, persistence: p, cancelBg: cancelBg, handler: handler}, nil
+	return &App{bus: bus, engine: engine, db: db, persistence: p, sources: srcSup, cancelBg: cancelBg, handler: handler}, nil
 }
 
 // registryDeviceLister adapts the channel registry to hardware.DeviceLister:
@@ -236,6 +255,13 @@ func (a *App) Shutdown(ctx context.Context) error {
 	var err error
 	if a.srv != nil {
 		err = a.srv.Shutdown(ctx)
+	}
+	// Stop the source supervisor before tearing down the ingest engine it feeds:
+	// this cancels every client goroutine and waits for them to drain.
+	if a.sources != nil {
+		if serr := a.sources.Stop(ctx); serr != nil && err == nil {
+			err = serr
+		}
 	}
 	if a.persistence != nil {
 		if perr := a.persistence.Stop(ctx); perr != nil && err == nil {

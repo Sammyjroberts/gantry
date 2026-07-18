@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Cpu, CircleAlert, ChevronRight } from "lucide-react";
 import { resolveBaseUrl } from "../config";
 import { useHardware } from "../useHardware";
+import { SourcesCard } from "../components/SourcesCard";
 
 /**
  * The hardware list page: configured device cards (linking to their detail /
@@ -18,6 +19,11 @@ export function HardwareListPage() {
       <div className="page-body">
         <h1 className="page-title">Hardware</h1>
         {hw.error && <div className="page-error">{hw.error}</div>}
+
+        {/* Telemetry sources feed hardware: the bench-managed in-process clients
+            that pull external telemetry in (Foxglove today). Above the device list
+            because a source is what makes a device appear here. */}
+        <SourcesCard />
 
         <h2 className="hw-section">Configured</h2>
         {hw.hardware.length === 0 && <div className="page-empty">No configured devices yet.</div>}

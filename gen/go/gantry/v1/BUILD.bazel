@@ -9,6 +9,7 @@ go_library(
         "ingest.pb.go",
         "live.pb.go",
         "query.pb.go",
+        "source.pb.go",
         "telemetry.pb.go",
         "workspace.pb.go",
     ],

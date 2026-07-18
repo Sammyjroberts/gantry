@@ -9,6 +9,7 @@ go_library(
         "ingest.connect.go",
         "live.connect.go",
         "query.connect.go",
+        "source.connect.go",
         "workspace.connect.go",
     ],
     importpath = "github.com/Sammyjroberts/gantry/gen/go/gantry/v1/gantryv1connect",

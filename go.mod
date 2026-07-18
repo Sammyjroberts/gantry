@@ -4,6 +4,7 @@ go 1.26
 
 require (
 	connectrpc.com/connect v1.20.0
+	github.com/coder/websocket v1.8.15
 	github.com/minio/minio-go/v7 v7.2.1
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/nats-io/nats-server/v2 v2.14.3

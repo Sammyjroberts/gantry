@@ -5,6 +5,7 @@ import {
   createExperimentClient,
   createQueryClient,
   createHardwareClient,
+  createSourceClient,
   createTokenClient,
   bearerInterceptor,
 } from "./clients";
@@ -15,6 +16,7 @@ import {
   ExperimentService,
   QueryService,
   HardwareService,
+  SourceService,
   StartExperimentRequestSchema,
   QueryRangeRequestSchema,
   UpsertHardwareRequestSchema,
@@ -55,6 +57,13 @@ describe("api-client factories", () => {
     expect(typeof client.deleteHardware).toBe("function");
   });
 
+  it("creates a SourceService client exposing the RPC methods", () => {
+    const client = createSourceClient("http://localhost:4780");
+    expect(typeof client.listSources).toBe("function");
+    expect(typeof client.upsertSource).toBe("function");
+    expect(typeof client.deleteSource).toBe("function");
+  });
+
   it("creates a TokenService client exposing the RPC methods", () => {
     const client = createTokenClient("http://localhost:4780");
     expect(typeof client.listTokens).toBe("function");
@@ -69,6 +78,7 @@ describe("api-client factories", () => {
     expect(ExperimentService.typeName).toBe("gantry.v1.ExperimentService");
     expect(QueryService.typeName).toBe("gantry.v1.QueryService");
     expect(HardwareService.typeName).toBe("gantry.v1.HardwareService");
+    expect(SourceService.typeName).toBe("gantry.v1.SourceService");
     expect(StartExperimentRequestSchema.typeName).toBe("gantry.v1.StartExperimentRequest");
     expect(QueryRangeRequestSchema.typeName).toBe("gantry.v1.QueryRangeRequest");
     expect(UpsertHardwareRequestSchema.typeName).toBe("gantry.v1.UpsertHardwareRequest");

@@ -1,0 +1,35 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "source",
+    srcs = [
+        "handler.go",
+        "service.go",
+        "store.go",
+        "supervisor.go",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/core/go/source",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//core/go/foxglove",
+        "//gen/go/gantry/v1:gantry",
+        "//gen/go/gantry/v1/gantryv1connect",
+        "@com_connectrpc_connect//:connect",
+    ],
+)
+
+go_test(
+    name = "source_test",
+    srcs = [
+        "source_test.go",
+        "supervisor_test.go",
+    ],
+    embed = [":source"],
+    deps = [
+        "//core/go/benchdb",
+        "//core/go/ingest",
+        "//core/go/registry",
+        "//gen/go/gantry/v1:gantry",
+        "@com_github_coder_websocket//:websocket",
+    ],
+)

@@ -9,6 +9,7 @@ import { ExperimentService } from "./gen/gantry/v1/experiment_pb";
 import { QueryService } from "./gen/gantry/v1/query_pb";
 import { HardwareService } from "./gen/gantry/v1/hardware_pb";
 import { WorkspaceService } from "./gen/gantry/v1/workspace_pb";
+import { SourceService } from "./gen/gantry/v1/source_pb";
 import { TokenService } from "./gen/gantry/v1/auth_pb";
 
 /** Typed client for the live telemetry (streaming) service. */
@@ -23,6 +24,8 @@ export type QueryClient = Client<typeof QueryService>;
 export type HardwareClient = Client<typeof HardwareService>;
 /** Typed client for the workspace (saved bench layout) service. */
 export type WorkspaceClient = Client<typeof WorkspaceService>;
+/** Typed client for the telemetry-source (bench-managed Foxglove client) service. */
+export type SourceClient = Client<typeof SourceService>;
 /** Typed client for the access-token (bench credential) service. */
 export type TokenClient = Client<typeof TokenService>;
 
@@ -132,6 +135,21 @@ export function createWorkspaceClient(
   options: ClientOptions = {},
 ): WorkspaceClient {
   return createClient(WorkspaceService, createConnectTransport({ baseUrl, ...options }));
+}
+
+/**
+ * Create a typed SourceService client bound to `baseUrl`.
+ *
+ * Same origin/base contract as {@link createLiveClient}: Connect appends the
+ * `/gantry.v1.SourceService/...` RPC path. Serves the Hardware page's telemetry
+ * sources card — List (rows + live supervisor status), Upsert (create when id is
+ * empty, else update; the enabled checkbox toggles this), Delete.
+ */
+export function createSourceClient(
+  baseUrl: string,
+  options: ClientOptions = {},
+): SourceClient {
+  return createClient(SourceService, createConnectTransport({ baseUrl, ...options }));
 }
 
 /**

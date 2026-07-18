@@ -7,6 +7,7 @@ export * from "./gen/gantry/v1/experiment_pb";
 export * from "./gen/gantry/v1/query_pb";
 export * from "./gen/gantry/v1/hardware_pb";
 export * from "./gen/gantry/v1/workspace_pb";
+export * from "./gen/gantry/v1/source_pb";
 export * from "./gen/gantry/v1/auth_pb";
 
 // Typed client factories over the connect-es v2 stack (incl. bearerInterceptor).

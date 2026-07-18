@@ -8,4 +8,5 @@ export const qk = {
   models: ["models"] as const,
   cameras: ["cameras"] as const,
   tokens: ["tokens"] as const,
+  sources: ["sources"] as const,
 };

@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "foxglove",
+    srcs = [
+        "client.go",
+        "mapping.go",
+        "protocol.go",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/core/go/foxglove",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//gen/go/gantry/v1:gantry",
+        "@com_github_coder_websocket//:websocket",
+    ],
+)
+
+go_test(
+    name = "foxglove_test",
+    srcs = [
+        "client_test.go",
+        "fakeserver_test.go",
+        "mapping_test.go",
+        "protocol_test.go",
+    ],
+    embed = [":foxglove"],
+    deps = [
+        "//gen/go/gantry/v1:gantry",
+        "@com_github_coder_websocket//:websocket",
+    ],
+)

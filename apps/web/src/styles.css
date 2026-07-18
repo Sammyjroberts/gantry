@@ -2358,3 +2358,31 @@ body {
 .tok-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .tok-chip { font-size: 10px; padding: 2px 7px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); color: var(--accent); letter-spacing: 0.04em; }
 .tok-row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+/* Telemetry sources card (Hardware page) */
+.sources-card { border: 1px solid var(--border); border-radius: 6px; background: var(--panel); padding: 14px 16px; margin: 0 0 24px; }
+.sources-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sources-head .hw-section { display: inline-flex; align-items: center; gap: 7px; margin: 0; }
+.sources-head-icon { color: var(--accent); }
+.source-form { background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin: 8px 0 14px; display: flex; flex-direction: column; gap: 10px; }
+.source-form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.source-field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; }
+.source-field-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.source-mapping { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 12px; padding: 8px 10px; resize: vertical; }
+.source-mapping:focus { outline: none; border-color: var(--accent); }
+.source-form-actions { display: flex; gap: 8px; }
+.sources-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.sources-table th { text-align: left; color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.sources-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.sources-table tr:last-child td { border-bottom: none; }
+.sources-col-num { text-align: right; font-variant-numeric: tabular-nums; }
+.source-name { font-weight: 600; color: var(--text); }
+.source-unnamed { color: var(--muted); font-weight: 400; }
+.source-url { color: var(--muted); font-size: 11px; }
+.source-row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+/* Live status dot: colour tracks the supervisor state machine. */
+.source-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.03); }
+.source-dot--connected { background: var(--ok); box-shadow: 0 0 6px rgba(63, 185, 80, 0.6); }
+.source-dot--connecting { background: var(--warn); box-shadow: 0 0 6px rgba(226, 185, 59, 0.5); }
+.source-dot--backoff { background: var(--danger); box-shadow: 0 0 6px rgba(229, 72, 77, 0.5); }
+.source-dot--disabled { background: var(--muted); }
