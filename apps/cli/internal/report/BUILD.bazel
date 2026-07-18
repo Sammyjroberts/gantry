@@ -1,0 +1,16 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "report",
+    srcs = ["report.go"],
+    importpath = "github.com/Sammyjroberts/gantry/apps/cli/internal/report",
+    visibility = ["//apps/cli:__subpackages__"],
+    deps = ["//gen/go/gantry/v1:gantry"],
+)
+
+go_test(
+    name = "report_test",
+    srcs = ["report_test.go"],
+    embed = [":report"],
+    deps = ["//gen/go/gantry/v1:gantry"],
+)
