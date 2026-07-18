@@ -1,14 +1,23 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="utf-8" />
     <meta name="color-scheme" content="dark" />
-    <title>Gantry Console</title>
-    <script type="module" crossorigin src="/assets/index-JUULWxMf.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CA3lVYmJ.css">
+    <title>Gantry Bench</title>
+    <style>
+      body { background: #0d1117; color: #c9d1d9; font-family: monospace; display: grid; place-items: center; min-height: 100vh; margin: 0; }
+      code { color: #79c0ff; }
+      div { max-width: 42rem; line-height: 1.6; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div>
+      <h1>Gantry Bench</h1>
+      <p>This binary was built without the web console embedded — the repo ships
+      only this placeholder (real build assets are generated, not committed).</p>
+      <p>Build the full console with <code>just bench-release</code>, then run
+      <code>bin/bench</code>.</p>
+      <p>The telemetry API, MCP, and all services are live on this port either way.</p>
+    </div>
   </body>
 </html>
