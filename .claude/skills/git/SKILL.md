@@ -46,6 +46,7 @@ Use exactly one of these; never invent a scope silently — add it to this list 
 | `bench` | `apps/bench` (Go single binary) |
 | `cloud` | `apps/cloud` (ingestd/queryd/controld) |
 | `web` | `apps/web` (TS/React console) |
+| `cli` | `apps/cli` (the `gantry` CLI) |
 | `sdk` | `sdk/` (Rust Edge SDK) |
 | `proto` | `proto/gantry/v1` contracts |
 | `core-go` | `core/go` shared engine |
