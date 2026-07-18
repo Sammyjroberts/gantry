@@ -1,0 +1,40 @@
+[package]
+name = "gantry-splitter"
+description = "Passive serial-sniffing proxy: sit between lerobot-teleoperate and the SO-101 Feetech bus over a PTY, forward bytes unmodified, and publish decoded per-joint telemetry to a Gantry bench. Unix-only runtime (compiles everywhere)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "gantry-splitter"
+path = "src/main.rs"
+
+[lib]
+name = "gantry_splitter"
+path = "src/lib.rs"
+
+[dependencies]
+# SDK core: the `Transport` trait + `TransportError` + `RetryConfig`, the proto
+# message types, and `Value` constructors. Reused, not reinvented.
+gantry-edge = { path = "../gantry-edge", version = "0.1.0" }
+gantry-edge-proto = { path = "../gantry-edge-proto", version = "0.1.0" }
+# Default Connect/HTTP transport we publish through (ureq, blocking, no tokio).
+gantry-edge-http = { path = "../gantry-edge-http", version = "0.1.0" }
+# Real serial device I/O (a COM port on Windows, /dev/tty.* on unix). Compiles on
+# every host so `cargo build --workspace` is green on the Windows dev box.
+serialport = "4"
+# Lean CLI.
+clap = { version = "4", features = ["derive", "env"] }
+# Calibration JSON (lerobot's per-motor MotorCalibration dict).
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# PTY creation is POSIX-only (openpt/grantpt/unlockpt/ptsname). Quarantined behind
+# cfg(unix); the Windows binary prints a clear message and exits 2.
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1", features = ["pty", "termios"] }
+
+[dev-dependencies]
+tempfile = "3"

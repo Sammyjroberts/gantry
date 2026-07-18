@@ -110,6 +110,108 @@ bench's `/models/` store and wires the per-joint 3D visualization. To do it by
 hand instead: upload the URDF + STLs via `/models/`, then bind each joint's
 `pos` channel on the hardware detail page.
 
+## Splitter (teleoperate + Gantry simultaneously)
+
+`so101_teleop_gantry.py` above runs teleop *and* Gantry from one Python process.
+`gantry-splitter` is the zero-touch alternative: a Rust daemon that sits between
+`lerobot-teleoperate` and the arms as a **passive serial sniffer**, so
+`lerobot-teleoperate` runs completely **unmodified** — rerun, cameras,
+everything — while the splitter decodes the traffic it forwards and streams the
+same per-joint telemetry to a Gantry bench. It lives in the SDK workspace at
+`sdk/gantry-splitter` (macOS/Linux only — it needs PTYs).
+
+**How it works.** For each port the splitter opens the *real* USB serial device,
+creates a pseudo-terminal (PTY) pair, and pumps bytes between them with no
+artificial buffering. You point `lerobot-teleoperate` at the PTY slave paths it
+prints instead of the real devices; it can't tell the difference. The splitter
+decodes the half-duplex Feetech traffic passing through — `Present_Position`
+reads → `pos`, `Goal_Position` writes (the teleop `sync_write` actions) → `cmd`
+— and publishes to the bench.
+
+### Build (macOS)
+
+```sh
+# Rust toolchain, if you don't have it:
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+cargo build -p gantry-splitter --release   # -> target/release/gantry-splitter
+```
+
+### Use
+
+Start the splitter with the **real** device paths, then point
+`lerobot-teleoperate` at the PTY paths it prints:
+
+```sh
+gantry-splitter \
+    --leader   /dev/tty.usbmodem5B7B0185921 \
+    --follower /dev/tty.usbmodem5B610373301 \
+    --calibration-dir ~/.cache/huggingface/lerobot/calibration/robots/so_follower \
+    --leader-id  my_awesome_leader_arm  --follower-id my_awesome_follower_arm \
+    [--endpoint http://localhost:4780] [--token gtk_...]
+# prints, e.g.:
+#   leader  -> /dev/ttys012   (point --teleop.port here; device=so101-leader)
+#   follower-> /dev/ttys013   (point --robot.port here;  device=so101-follower)
+```
+
+```sh
+lerobot-teleoperate \
+    --teleop.type=so101_leader   --teleop.port=/dev/ttys012 --teleop.id=my_awesome_leader_arm \
+    --robot.type=so101_follower  --robot.port=/dev/ttys013  --robot.id=my_awesome_follower_arm
+```
+
+A single arm works too — pass just `--leader` or just `--follower`.
+
+### Channels
+
+Devices `so101-leader` / `so101-follower`, one packet per joint (`shoulder_pan`
+… `gripper`), same as the Python bridge:
+
+- **`pos`** — measured `Present_Position` per joint (both arms).
+- **`cmd`** — commanded `Goal_Position` per joint (the follower gets these from
+  teleop's `sync_write`).
+- **`track_err`** on each follower joint when both arms run: leader `pos` −
+  follower `pos`, against the latest leader snapshot (same units as `pos`).
+
+Registration retries until the bench is up, batches flush ~every 100 ms, and the
+per-device sequence advances on dropped batches (honest gaps) — same contract as
+the other kit tools.
+
+### Calibration
+
+Sniffed values are raw Feetech counts. With `--calibration-dir` + `--*-id` the
+splitter loads lerobot's own per-motor calibration JSON (`<id>.json`, the
+`MotorCalibration` schema) and applies the **same** normalization lerobot does,
+so splitter output matches the lerobot-native paths: body joints in **degrees**,
+the gripper in **0–100 %**. The lerobot default layout puts these under
+`~/.cache/huggingface/lerobot/calibration/robots/so_follower/<id>.json` (and
+`.../teleoperators/so_leader/<id>.json` for leaders) — pass the directory that
+contains your `<id>.json`.
+
+- `homing_offset` is applied by the servo in hardware
+  (`Present_Position = Actual_Position − Homing_Offset`), so the splitter does
+  **not** re-apply it — the raw value already carries it.
+- Positions are sign-magnitude decoded (bit 15) before normalization, exactly as
+  lerobot does.
+- `--no-degrees` publishes body joints as −100…100 (matches lerobot
+  `use_degrees=false`); the default is degrees.
+- `--raw` (or omitting `--calibration-dir`) publishes uncalibrated raw-center
+  degrees `((raw & 0xFFF) − 2048)·360/4096`, mirroring `so101_bridge.py`'s raw
+  backend — self-consistent but not zeroed to your calibration.
+
+### Caveats
+
+- **macOS/Linux only.** PTYs are POSIX. On Windows the binary prints a message
+  and exits 2 (the crate still compiles there); use `so101_bridge.py` /
+  `so101_teleop_gantry.py` instead.
+- The real ports are opened at **1 Mbaud** (the SO-101 bus speed); PTYs have no
+  baud, so lerobot's `--*.port` baud setting is a harmless no-op.
+- The splitter tolerates `lerobot-teleoperate` opening/closing the PTY
+  repeatedly. A **real-device unplug** exits with a clear message — wrap it in
+  `systemd`/a restart loop if you want auto-recovery (v1 leaves that to you).
+- First hardware contact: confirm the printed PTY paths, that
+  `lerobot-teleoperate` moves the follower normally (the splitter is passive and
+  never injects bytes), and that `pos`/`cmd`/`track_err` appear on the bench.
+
 ## Tests
 
 Pure-part coverage, no hardware and no network:
@@ -123,6 +225,13 @@ parse incl. corrupt-checksum + resync), raw→deg math, sync-read degrade,
 publisher batching + sequence-on-drop (mocked `urlopen`), tracking-error
 pairing, channel-spec shape, port persistence round-trip, and the auto-detect /
 pairing / no-adapters paths (injected I/O).
+
+The Rust splitter has its own suite in the SDK workspace (`cargo test -p
+gantry-splitter`): decoder attribution/resync/checksum from byte fixtures,
+calibration loading + lerobot-matching normalization, and — on macOS/Linux — a
+full PTY loopback that asserts byte-identical passthrough, decoded frames on a
+mock transport, and sub-millisecond pump latency. The unix-only tests skip
+cleanly on Windows.
 
 ## Notes
 

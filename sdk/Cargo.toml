@@ -10,6 +10,7 @@ members = [
     "gantry-tlm",
     "gantry-tlm-derive",
     "gantry-serial-agent",
+    "gantry-splitter",
 ]
 
 [workspace.package]
