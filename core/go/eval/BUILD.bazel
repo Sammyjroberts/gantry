@@ -9,6 +9,7 @@ go_library(
         "metrics.go",
         "service.go",
         "store.go",
+        "telemetry.go",
     ],
     importpath = "github.com/Sammyjroberts/gantry/core/go/eval",
     visibility = ["//visibility:public"],
@@ -23,9 +24,13 @@ go_library(
 
 go_test(
     name = "eval_test",
-    srcs = ["eval_test.go"],
+    srcs = [
+        "eval_test.go",
+        "gating_test.go",
+        "telemetry_test.go",
+    ],
+    embed = [":eval"],
     deps = [
-        ":eval",
         "//core/go/benchdb",
         "//core/go/experiments",
         "//gen/go/gantry/v1:gantry",

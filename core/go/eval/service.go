@@ -45,16 +45,35 @@ type ExperimentBracketer interface {
 // idempotency, and delegates persistence to the Store and trial bracketing to an
 // ExperimentBracketer. now is injectable for deterministic tests.
 type Service struct {
-	store *Store
-	exp   ExperimentBracketer
-	now   func() time.Time
+	store   *Store
+	exp     ExperimentBracketer
+	sampler Sampler
+	now     func() time.Time
+}
+
+// Option configures a Service.
+type Option func(*Service)
+
+// WithSampler wires a telemetry Sampler so trials can be auto-scored on close by
+// a suite's telemetry verifier. A nil sampler is ignored (auto-scoring stays
+// off, and ScoreTrialTelemetry is a no-op).
+func WithSampler(s Sampler) Option {
+	return func(sv *Service) {
+		if s != nil {
+			sv.sampler = s
+		}
+	}
 }
 
 // NewService builds a Service over an already-migrated *sql.DB and an experiment
 // bracketer (share the same *experiments.Service the app already runs, so trial
 // experiments show up alongside ordinary ones).
-func NewService(db *sql.DB, exp ExperimentBracketer) *Service {
-	return &Service{store: NewStore(db), exp: exp, now: time.Now}
+func NewService(db *sql.DB, exp ExperimentBracketer, opts ...Option) *Service {
+	s := &Service{store: NewStore(db), exp: exp, now: time.Now}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
 }
 
 // Store exposes the underlying store (used by read paths).
@@ -245,6 +264,11 @@ func (s *Service) CloseTrial(ctx context.Context, trialID string, endNs uint64, 
 		if err := s.store.CloseTrial(ctx, trialID, int64(t.EndedNs), videoChunkIDs); err != nil {
 			return nil, err
 		}
+	}
+	// When a telemetry Sampler is wired and the suite declares telemetry checks,
+	// auto-score the just-closed trial (no-op otherwise).
+	if s.sampler != nil {
+		return s.ScoreTrialTelemetry(ctx, trialID)
 	}
 	return s.store.GetTrial(ctx, trialID)
 }
