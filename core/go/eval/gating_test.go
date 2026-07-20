@@ -218,6 +218,58 @@ func TestGateBootstrapPromoteAndCompare(t *testing.T) {
 	}
 }
 
+func TestGateBootstrapRequiresMinScored(t *testing.T) {
+	// Regression for finding #2: a thin/empty first run must NOT bootstrap-pass
+	// or become promotable — that would seed a degenerate champion.
+	ctx := context.Background()
+	svc := newGatingSvc(t)
+	suite, _ := svc.UpsertSuite(ctx, &gantryv1.Suite{
+		Name:      "s",
+		Scenarios: []*gantryv1.Scenario{{Id: "s1", TrialBudget: 20, MinScored: 20}},
+	})
+	run := scoreRun(t, svc, suite.Id, "sha:thin", 3, 3) // 3 scored, no baseline
+	res, err := svc.EvaluateGate(ctx, run.Id)
+	if err != nil {
+		t.Fatalf("EvaluateGate: %v", err)
+	}
+	if res.Passed || !res.Inconclusive {
+		t.Fatalf("thin bootstrap must be inconclusive, not pass: %+v", res)
+	}
+	if _, err := svc.PromoteBaseline(ctx, run.Id, ""); err == nil {
+		t.Fatal("an inconclusive run must not be promotable")
+	}
+}
+
+func TestGateRejectsNonInferiorOnNonRateMetric(t *testing.T) {
+	// Regression for finding #3: non_inferior on a non-rate metric must not
+	// silently compare success_rate's Wilson bound against a zero baseline.
+	ctx := context.Background()
+	svc := newGatingSvc(t)
+	suite, _ := svc.UpsertSuite(ctx, &gantryv1.Suite{
+		Name:        "s",
+		GateJson:    `[{"metric":"task_time_s","op":"non_inferior","margin":0.5}]`,
+		MetricsJson: `[{"name":"task_time_s","check":"task_time_s","agg":"p50"}]`,
+		Scenarios:   []*gantryv1.Scenario{{Id: "s1", TrialBudget: 1, MinScored: 1}},
+	})
+	run, _ := svc.StartRun(ctx, suite.Id, &gantryv1.Subject{Digest: "d"}, "", "", 1, "")
+	tr, _ := svc.OpenTrial(ctx, run.Id, "s1", 0, "", 0)
+	if _, err := svc.SubmitVerdict(ctx, tr.Id, &gantryv1.Verdict{VerifierId: "t", VerifierVersion: "1", Checks: []*gantryv1.Check{
+		{Name: "task_time_s", Phase: gantryv1.Phase_PHASE_OUTCOME, Required: true, Kind: gantryv1.CheckKind_CHECK_KIND_NUMERIC, Op: "<=", Threshold: 30, Value: 20},
+	}}); err != nil {
+		t.Fatalf("SubmitVerdict: %v", err)
+	}
+	if _, err := svc.CloseTrial(ctx, tr.Id, 0, nil); err != nil {
+		t.Fatalf("CloseTrial: %v", err)
+	}
+	res, err := svc.EvaluateGate(ctx, run.Id)
+	if err != nil {
+		t.Fatalf("EvaluateGate: %v", err)
+	}
+	if res.Passed {
+		t.Fatalf("non_inferior on a non-rate metric must not pass: %s", res.Checks[0].Detail)
+	}
+}
+
 func TestGateInconclusiveBelowMinScored(t *testing.T) {
 	ctx := context.Background()
 	svc := newGatingSvc(t)

@@ -44,12 +44,12 @@ func evaluateGate(m runMetrics, baseline *gantryv1.Baseline, gateJSON string, mi
 	}
 	passed, inconclusive := true, false
 	for _, spec := range specs {
-		gc := evalGateCheck(spec, m, baseline, minScored)
+		gc, inc := evalGateCheck(spec, m, baseline, minScored)
 		res.Checks = append(res.Checks, gc)
 		if !gc.Passed {
 			passed = false
 		}
-		if isInconclusive(gc) {
+		if inc {
 			inconclusive = true
 		}
 	}
@@ -58,64 +58,77 @@ func evaluateGate(m runMetrics, baseline *gantryv1.Baseline, gateJSON string, mi
 	return res, nil
 }
 
-func evalGateCheck(spec gateSpec, m runMetrics, baseline *gantryv1.Baseline, minScored int) *gantryv1.GateCheck {
+// evalGateCheck evaluates one gate check and reports (check, inconclusive).
+// inconclusive means the check could not be decided on adequate data (too few
+// trials) — the caller treats that as a fail in CI but distinguishes it from a
+// genuine regression.
+func evalGateCheck(spec gateSpec, m runMetrics, baseline *gantryv1.Baseline, minScored int) (*gantryv1.GateCheck, bool) {
 	cand, ok := m.Values[spec.Metric]
 	gc := &gantryv1.GateCheck{Metric: spec.Metric, CandidateValue: cand, Op: spec.Op, Margin: spec.Margin}
 	if !ok {
 		gc.Detail = fmt.Sprintf("metric %q not computed", spec.Metric)
-		return gc
+		return gc, false
 	}
 
 	switch spec.Op {
 	case "abs>=":
 		gc.Passed = cand >= spec.Margin
 		gc.Detail = fmt.Sprintf("%.4f >= floor %.4f", cand, spec.Margin)
+		return gc, false
 	case "<=":
 		gc.Passed = cand <= spec.Margin
 		gc.Detail = fmt.Sprintf("%.4f <= ceiling %.4f", cand, spec.Margin)
+		return gc, false
 	case ">=", "non_inferior":
+		// Baseline-relative ops only make sense for a metric a baseline stores a
+		// value for. In M1 that is success_rate alone; anything else is a config
+		// error and must not silently compare the wrong quantity (finding #3).
+		if spec.Metric != "success_rate" {
+			gc.Detail = fmt.Sprintf("op %q needs a rate baseline; metric %q has none — use abs>= or <=", spec.Op, spec.Metric)
+			return gc, false
+		}
+		// A rate decision — bootstrap or comparison — is only sound with enough
+		// scored trials. Guard BEFORE the bootstrap short-circuit so a thin/empty
+		// first run cannot seed a degenerate champion (finding #2).
+		if m.scored() < minScored {
+			gc.Detail = fmt.Sprintf("inconclusive: %d scored < %d required", m.scored(), minScored)
+			return gc, true
+		}
 		if baseline == nil {
 			gc.Passed = true
-			gc.Detail = "no baseline yet (bootstrap): candidate seeds the champion"
-			return gc
+			gc.Detail = fmt.Sprintf("no baseline yet (bootstrap): candidate seeds the champion from %d scored", m.scored())
+			return gc, false
 		}
 		base := baselineMetric(spec.Metric, baseline)
 		gc.BaselineValue = base
 		if spec.Op == ">=" {
 			gc.Passed = cand >= base-spec.Margin
 			gc.Detail = fmt.Sprintf("%.4f >= baseline %.4f - margin %.4f", cand, base, spec.Margin)
-			return gc
+			return gc, false
 		}
-		// non_inferior: Wilson lower bound of the candidate rate must clear the
-		// baseline minus the non-inferiority margin. Requires trial counts.
-		if m.scored() < minScored {
-			gc.Detail = fmt.Sprintf("inconclusive: %d scored < %d required", m.scored(), minScored)
-			return gc
-		}
+		// non_inferior: the Wilson lower bound of the candidate rate must clear
+		// the baseline minus the non-inferiority margin.
 		z := zFor(spec.Confidence)
 		lower := wilsonLower(m.Pass, m.scored(), z)
 		threshold := base - spec.Margin
 		gc.Passed = lower >= threshold
 		gc.Detail = fmt.Sprintf("Wilson %.0f%% lower bound %.4f %s baseline %.4f - margin %.4f = %.4f",
 			confPct(spec.Confidence), lower, cmp(gc.Passed), base, spec.Margin, threshold)
+		return gc, false
 	default:
 		gc.Detail = fmt.Sprintf("unknown op %q", spec.Op)
+		return gc, false
 	}
-	return gc
 }
 
 // baselineMetric resolves a baseline's value for a metric. Only success_rate is
-// stored on the baseline in M1; other metrics fall back to 0 (so pair them with
-// abs>= / <= absolute checks until per-metric baselines land).
+// stored on the baseline in M1; other metrics fall back to 0 (guarded against in
+// evalGateCheck, which rejects baseline-relative ops on non-rate metrics).
 func baselineMetric(metric string, b *gantryv1.Baseline) float64 {
 	if metric == "success_rate" {
 		return b.SuccessRate
 	}
 	return 0
-}
-
-func isInconclusive(gc *gantryv1.GateCheck) bool {
-	return !gc.Passed && len(gc.Detail) >= 12 && gc.Detail[:12] == "inconclusive"
 }
 
 // wilsonLower returns the lower bound of the Wilson score interval for k
