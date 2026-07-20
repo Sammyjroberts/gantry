@@ -1,0 +1,146 @@
+syntax = "proto3";
+
+package gantry.v1;
+
+// Stations: the unit of hardware checkout. A bench host exposes one or more
+// stations (a station = a tagged bundle of devices + sensors that form one
+// physical workspace, e.g. an arm and its own top-down camera). Checkout is
+// per-station, not per-host, so one big shared rig (40 arms on one server)
+// supports many concurrent, non-overlapping leases. This service is mounted
+// identically by Bench (its own stations) and Cloud (the pool across hosts);
+// discovery reuses the hardware/registry layer, and this adds grouping, leasing,
+// and liveness. See RFC 0001 §5/§8.
+service StationService {
+  // Register or update a station a host exposes (id is the natural key). Stamps
+  // liveness; availability is derived, not set by the caller.
+  rpc RegisterStation(RegisterStationRequest) returns (RegisterStationResponse);
+  // "what's connected, and what state is each in?"
+  rpc ListStations(ListStationsRequest) returns (ListStationsResponse);
+  rpc GetStation(GetStationRequest) returns (GetStationResponse);
+  // "is this a valid target?" — a dry run over the selector before a CI slot is
+  // committed: how many stations match, are online, and are free.
+  rpc CheckTarget(CheckTargetRequest) returns (CheckTargetResponse);
+  // "can I check one out?" — lease / heartbeat / release.
+  rpc Lease(LeaseRequest) returns (LeaseResponse);
+  rpc RenewLease(RenewLeaseRequest) returns (RenewLeaseResponse);
+  rpc ReleaseLease(ReleaseLeaseRequest) returns (ReleaseLeaseResponse);
+}
+
+// Availability is derived from device liveness (recent telemetry / heartbeat)
+// and never stored: ONLINE = seen recently; OFFLINE = stale/host dropped;
+// DEGRADED = partially up (e.g. arm online but its camera missing).
+enum Availability {
+  AVAILABILITY_UNSPECIFIED = 0;
+  AVAILABILITY_ONLINE = 1;
+  AVAILABILITY_OFFLINE = 2;
+  AVAILABILITY_DEGRADED = 3;
+}
+
+message Lease {
+  string id = 1;
+  string station_id = 2;
+  // Who holds it: a run id, CI job, or engineer.
+  string holder = 3;
+  fixed64 acquired_ns = 4;
+  // TTL boundary; the lease auto-frees past this if not renewed.
+  fixed64 expires_ns = 5;
+  string reason = 6;
+}
+
+message Station {
+  string id = 1;
+  // Which host exposes it (Cloud aggregates many; empty on a lone Bench).
+  string bench_host_id = 2;
+  // Capability tags, e.g. {arm: so101, camera: topdown, gripper: parallel}.
+  map<string, string> tags = 3;
+  // The hardware/telemetry devices in this station.
+  repeated string device_ids = 4;
+  Availability availability = 5;
+  fixed64 last_seen_ns = 6;
+  // Absent when free.
+  Lease lease = 7;
+  string health_json = 8;
+}
+
+// Per-station outcome of a CheckTarget dry run.
+message StationVerdict {
+  string station_id = 1;
+  bool matched = 2;
+  bool online = 3;
+  bool free = 4;
+  repeated string reasons = 5;
+}
+
+message RegisterStationRequest {
+  Station station = 1;
+}
+
+message RegisterStationResponse {
+  Station station = 1;
+}
+
+message ListStationsRequest {
+  // Optional tag selector, e.g. "arm=so101,camera=topdown". Empty = all.
+  string selector = 1;
+}
+
+message ListStationsResponse {
+  repeated Station stations = 1;
+}
+
+message GetStationRequest {
+  string id = 1;
+}
+
+message GetStationResponse {
+  Station station = 1;
+}
+
+message CheckTargetRequest {
+  string selector = 1;
+  string suite_id = 2;
+  // How many matching stations the run needs (0/1 = one).
+  uint32 replicas = 3;
+}
+
+message CheckTargetResponse {
+  // True when enough matching stations are online and free to satisfy replicas.
+  bool ok = 1;
+  uint32 matched = 2;
+  uint32 online = 3;
+  uint32 free = 4;
+  repeated StationVerdict stations = 5;
+  string detail = 6;
+}
+
+message LeaseRequest {
+  string selector = 1;
+  // Number of stations to lease (0/1 = one).
+  uint32 replicas = 2;
+  string holder = 3;
+  string reason = 4;
+  // Lease lifetime; 0 = server default.
+  uint32 ttl_seconds = 5;
+  // Retries with the same key return the same leases.
+  string idempotency_key = 6;
+}
+
+message LeaseResponse {
+  repeated Lease leases = 1;
+  repeated Station stations = 2;
+}
+
+message RenewLeaseRequest {
+  string lease_id = 1;
+  uint32 ttl_seconds = 2;
+}
+
+message RenewLeaseResponse {
+  Lease lease = 1;
+}
+
+message ReleaseLeaseRequest {
+  string lease_id = 1;
+}
+
+message ReleaseLeaseResponse {}
