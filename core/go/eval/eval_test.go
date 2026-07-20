@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/Sammyjroberts/gantry/core/go/benchdb"
@@ -192,6 +193,39 @@ func TestTrialLifecycleIdempotent(t *testing.T) {
 
 	if _, err := svc.OpenTrial(ctx, "ghost", "pick-a", 0, "", 0); !errors.Is(err, eval.ErrNotFound) {
 		t.Fatalf("want ErrNotFound for unknown run, got %v", err)
+	}
+}
+
+func TestStartRunConcurrentIdempotency(t *testing.T) {
+	// Regression for finding #6: many callers sharing an idempotency key must all
+	// receive the same run, not a UNIQUE-constraint error for the losers.
+	ctx := context.Background()
+	svc, _ := newSvc(t)
+	su := mustSuite(t, svc)
+
+	const n = 20
+	ids := make([]string, n)
+	errs := make([]error, n)
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			r, err := svc.StartRun(ctx, su.Id, &gantryv1.Subject{Digest: "d"}, "", "", 1, "shared-key")
+			if err == nil {
+				ids[i] = r.Id
+			}
+			errs[i] = err
+		}(i)
+	}
+	wg.Wait()
+	for i := 0; i < n; i++ {
+		if errs[i] != nil {
+			t.Fatalf("caller %d errored instead of adopting the run: %v", i, errs[i])
+		}
+		if ids[i] != ids[0] {
+			t.Fatalf("idempotency diverged: %q != %q", ids[i], ids[0])
+		}
 	}
 }
 
