@@ -151,7 +151,7 @@ func New(ctx context.Context, storeDir string, opts ...Option) (*App, error) {
 	// Evals & release gating: reusable test suites → runs → trials. Each trial is
 	// bracketed as an experiment via the shared expSvc, so a trial's telemetry
 	// range is a first-class experiment (listable, exportable, SQL-queryable).
-	evalSvc := eval.NewService(db, expSvc)
+	evalSvc := eval.NewService(db, expSvc, eval.WithSampler(NewDuckDBSampler(p.SQL)))
 	evalPath, evalHandler := gantryv1connect.NewEvalServiceHandler(eval.NewHandler(evalSvc))
 	mux.Handle(ingestPath, ingestHandler)
 	mux.Handle(livePath, liveHandler)
