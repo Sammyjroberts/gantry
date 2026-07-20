@@ -17,22 +17,26 @@ import (
 	"strings"
 )
 
-// The four scopes. They name route families, not individual RPCs, so the set
-// stays tiny and memorable:
+// The scopes. They name route families, not individual RPCs, so the set stays
+// tiny and memorable:
 //   - ingest:  publish/register telemetry (IngestService).
 //   - read:    query/live/export/SQL/model-reads/MCP reads.
-//   - operate: experiments, workspaces, video capture, MCP write tools.
-//   - admin:   hardware config, model uploads, token management.
+//   - operate: experiments, workspaces, video capture, eval runs/trials, MCP write tools.
+//   - verify:  submit eval verdicts ONLY — the least-privilege grant for a
+//     bring-your-own verifier (vision/agent), which scores trials but must never
+//     drive hardware or promote a release.
+//   - admin:   hardware config, model uploads, token management, baseline promotion.
 const (
 	ScopeIngest  = "ingest"
 	ScopeRead    = "read"
 	ScopeOperate = "operate"
+	ScopeVerify  = "verify"
 	ScopeAdmin   = "admin"
 )
 
 // allScopes is the full grant handed to fully-trusted (loopback) callers and the
 // allowlist CreateToken validates against.
-var allScopes = []string{ScopeIngest, ScopeRead, ScopeOperate, ScopeAdmin}
+var allScopes = []string{ScopeIngest, ScopeRead, ScopeOperate, ScopeVerify, ScopeAdmin}
 
 // AllScopes returns a fresh copy of the four valid scopes (stable order).
 func AllScopes() []string {
@@ -44,7 +48,7 @@ func AllScopes() []string {
 // ValidScope reports whether s is one of the four known scopes.
 func ValidScope(s string) bool {
 	switch s {
-	case ScopeIngest, ScopeRead, ScopeOperate, ScopeAdmin:
+	case ScopeIngest, ScopeRead, ScopeOperate, ScopeVerify, ScopeAdmin:
 		return true
 	default:
 		return false
@@ -80,7 +84,7 @@ func NormalizeScopes(scopes []string) ([]string, error) {
 type UnknownScopeError struct{ Scope string }
 
 func (e *UnknownScopeError) Error() string {
-	return `unknown scope "` + e.Scope + `" (valid: ingest, read, operate, admin)`
+	return `unknown scope "` + e.Scope + `" (valid: ingest, read, operate, verify, admin)`
 }
 
 // EncodeScopes joins a scope set for storage/transport as a space-separated
@@ -146,6 +150,23 @@ var routeRules = []routeRule{
 	{prefix: "/gantry.v1.QueryService/", scope: ScopeRead},
 	{prefix: "/gantry.v1.ExperimentService/", scope: ScopeOperate},
 	{prefix: "/gantry.v1.WorkspaceService/", scope: ScopeOperate},
+	// Evals: reads need read; mutations operate; a verdict submission is the
+	// least-privilege verify scope (a BYO verifier can score but not drive
+	// hardware); promoting a baseline is an admin release action. The exact
+	// per-RPC rules must precede the service prefix so they win.
+	{prefix: "/gantry.v1.EvalService/SubmitVerdict", exact: true, scope: ScopeVerify},
+	{prefix: "/gantry.v1.EvalService/PromoteBaseline", exact: true, scope: ScopeAdmin},
+	{prefix: "/gantry.v1.EvalService/ListSuites", exact: true, scope: ScopeRead},
+	{prefix: "/gantry.v1.EvalService/GetSuite", exact: true, scope: ScopeRead},
+	{prefix: "/gantry.v1.EvalService/ListRuns", exact: true, scope: ScopeRead},
+	{prefix: "/gantry.v1.EvalService/GetRun", exact: true, scope: ScopeRead},
+	{prefix: "/gantry.v1.EvalService/GetBaseline", exact: true, scope: ScopeRead},
+	{prefix: "/gantry.v1.EvalService/", scope: ScopeOperate},
+	// Stations: discovery is read; register/lease/renew/release operate.
+	{prefix: "/gantry.v1.StationService/ListStations", exact: true, scope: ScopeRead},
+	{prefix: "/gantry.v1.StationService/GetStation", exact: true, scope: ScopeRead},
+	{prefix: "/gantry.v1.StationService/CheckTarget", exact: true, scope: ScopeRead},
+	{prefix: "/gantry.v1.StationService/", scope: ScopeOperate},
 	{prefix: "/gantry.v1.HardwareService/", scope: ScopeAdmin},
 	{prefix: "/gantry.v1.TokenService/", scope: ScopeAdmin},
 	{prefix: "/export/", scope: ScopeRead},
