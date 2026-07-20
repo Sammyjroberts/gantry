@@ -190,6 +190,7 @@ func New(ctx context.Context, storeDir string, opts ...Option) (*App, error) {
 		Replay:      bus,
 		Stream:      stater,
 		Experiments: expSvc,
+		Evals:       evalSvc,
 		SQL:         NewSQLRunner(p.SQL),
 		StartedAt:   time.Now(),
 	}))
