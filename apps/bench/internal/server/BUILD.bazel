@@ -25,6 +25,7 @@ go_library(
         "//core/go/duckdb",
         "//core/go/eval",
         "//core/go/experiments",
+        "//core/go/stations",
         "//core/go/hardware",
         "//core/go/ingest",
         "//core/go/mcp",

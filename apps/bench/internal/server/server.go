@@ -24,6 +24,7 @@ import (
 	"github.com/Sammyjroberts/gantry/core/go/models"
 	"github.com/Sammyjroberts/gantry/core/go/registry"
 	"github.com/Sammyjroberts/gantry/core/go/source"
+	"github.com/Sammyjroberts/gantry/core/go/stations"
 	"github.com/Sammyjroberts/gantry/core/go/stream"
 	"github.com/Sammyjroberts/gantry/core/go/video"
 	"github.com/Sammyjroberts/gantry/core/go/workspace"
@@ -153,6 +154,9 @@ func New(ctx context.Context, storeDir string, opts ...Option) (*App, error) {
 	// range is a first-class experiment (listable, exportable, SQL-queryable).
 	evalSvc := eval.NewService(db, expSvc, eval.WithSampler(NewDuckDBSampler(p.SQL)))
 	evalPath, evalHandler := gantryv1connect.NewEvalServiceHandler(eval.NewHandler(evalSvc))
+	// Stations: the hardware-checkout surface (discovery, validity, lease, status).
+	stationSvc := stations.NewService(db, stations.WithHostID("bench-local"))
+	stationPath, stationHandler := gantryv1connect.NewStationServiceHandler(stations.NewHandler(stationSvc))
 	mux.Handle(ingestPath, ingestHandler)
 	mux.Handle(livePath, liveHandler)
 	mux.Handle(expPath, expHandler)
@@ -162,6 +166,7 @@ func New(ctx context.Context, storeDir string, opts ...Option) (*App, error) {
 	mux.Handle(srcPath, srcHandler)
 	mux.Handle(tokPath, tokHandler)
 	mux.Handle(evalPath, evalHandler)
+	mux.Handle(stationPath, stationHandler)
 
 	// Chunked video catalog + per-device model files (plain HTTP; see the
 	// register funcs for the URL surface). SQL over the segment store when a
