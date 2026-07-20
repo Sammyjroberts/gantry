@@ -169,6 +169,13 @@ func (s *Service) StartRun(ctx context.Context, suiteID string, candidate *gantr
 		CreatedNs:      nowNs,
 	}
 	if err := s.store.InsertRun(ctx, run, idempotencyKey); err != nil {
+		// A concurrent StartRun with the same key won the unique-index race:
+		// adopt the winner instead of surfacing a UNIQUE failure (finding #6).
+		if idempotencyKey != "" {
+			if winner, gerr := s.store.GetRunByIdempotencyKey(ctx, idempotencyKey); gerr == nil {
+				return winner, nil
+			}
+		}
 		return nil, err
 	}
 	_ = baselineRef // resolved at gate time in a later milestone
