@@ -72,6 +72,20 @@ type Experiments interface {
 	List(ctx context.Context, deviceID string) ([]*gantryv1.Experiment, error)
 }
 
+// Evals is the narrow slice of the eval engine the verifier tools need: list a
+// run's trials and submit a verdict against one. It lets an LLM/agent connected
+// over MCP act as a verifier — reasoning over telemetry (via the read tools) and
+// the linked video, then writing a pass/fail verdict. Defined here over the proto
+// types so mcp keeps no dependency on core/go/eval; *eval.Service satisfies it
+// directly. Optional: a Deps without one registers no verifier tools.
+type Evals interface {
+	// Trials returns a run's trials (id, scenario, verdicts, video chunk ids).
+	Trials(ctx context.Context, runID string) ([]*gantryv1.Trial, error)
+	// SubmitVerdict records a verifier's verdict for a trial and returns it
+	// updated (with the recomputed outcome).
+	SubmitVerdict(ctx context.Context, trialID string, v *gantryv1.Verdict) (*gantryv1.Trial, error)
+}
+
 // StreamState is a transport-neutral snapshot of the telemetry stream.
 type StreamState struct {
 	Name      string `json:"name"`
@@ -94,6 +108,9 @@ type Deps struct {
 	// Experiments backs the experiment tools (optional). When nil, the
 	// start_experiment/stop_experiment/list_experiments tools are not registered.
 	Experiments Experiments
+	// Evals backs the verifier tools (optional). When nil, the
+	// list_trials/submit_verdict tools are not registered.
+	Evals Evals
 	// SQL backs the query_sql tool (optional). When nil, query_sql is not
 	// registered. Bench wires the DuckDB engine here (via a thin adapter).
 	SQL SQLRunner

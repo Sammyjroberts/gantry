@@ -7,6 +7,7 @@ go_library(
         "bus.go",
         "channels.go",
         "collect.go",
+        "evaltools.go",
         "experiments.go",
         "mcp.go",
         "scope.go",
@@ -30,6 +31,7 @@ go_test(
     name = "mcp_test",
     srcs = [
         "channels_test.go",
+        "evaltools_test.go",
         "tools_test.go",
     ],
     embed = [":mcp"],

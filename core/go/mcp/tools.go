@@ -50,6 +50,12 @@ func registerTools(s *mcpsdk.Server, d Deps) {
 	if d.SQL != nil {
 		registerSQLTool(s, d)
 	}
+
+	// Verifier tools are registered only when the hosting app wires an eval
+	// engine into Deps — letting an MCP client act as an eval verifier.
+	if d.Evals != nil {
+		registerEvalTools(s, d)
+	}
 }
 
 // ---- list_channels ----

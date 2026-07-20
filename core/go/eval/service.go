@@ -193,6 +193,11 @@ func (s *Service) ListRuns(ctx context.Context, suiteID string) ([]*gantryv1.Eva
 	return s.store.ListRuns(ctx, suiteID)
 }
 
+// Trials returns a run's trials (used by the MCP verifier tools).
+func (s *Service) Trials(ctx context.Context, runID string) ([]*gantryv1.Trial, error) {
+	return s.store.ListTrials(ctx, runID)
+}
+
 // ---- trials ----
 
 // OpenTrial opens (or re-attaches to) a trial for a run/scenario/attempt,
