@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Sammyjroberts/gantry/core/go/auth"
 	gantryv1 "github.com/Sammyjroberts/gantry/gen/go/gantry/v1"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -110,7 +111,12 @@ type submitVerdictResult struct {
 	VerdictID   string `json:"verifier_id"`
 }
 
-func (d Deps) submitVerdict(ctx context.Context, _ *mcpsdk.CallToolRequest, args submitVerdictArgs) (*mcpsdk.CallToolResult, submitVerdictResult, error) {
+func (d Deps) submitVerdict(ctx context.Context, req *mcpsdk.CallToolRequest, args submitVerdictArgs) (*mcpsdk.CallToolResult, submitVerdictResult, error) {
+	// submit_verdict mutates a trial's disposition — a read-scoped MCP client
+	// must not flip a verdict. Gate it on the least-privilege verify scope.
+	if err := requireToolScope(req, auth.ScopeVerify); err != nil {
+		return nil, submitVerdictResult{}, err
+	}
 	if args.TrialID == "" || args.VerifierID == "" {
 		return nil, submitVerdictResult{}, fmt.Errorf("trial_id and verifier_id are required")
 	}
