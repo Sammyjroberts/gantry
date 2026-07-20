@@ -118,7 +118,12 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("benchdb: sub migrations fs: %w", err)
 	}
-	provider, err := goose.NewProvider(goose.DialectSQLite3, db, sub)
+	// AllowOutofOrder: migrations are TIMESTAMP-named (YYYYMMDDHHMMSS_name.sql)
+	// going forward — parallel branches pick disjoint versions by construction,
+	// but the branch merged second may carry an older timestamp than one already
+	// applied; out-of-order application makes that safe. The early sequential
+	// files (0001..0007) are frozen history.
+	provider, err := goose.NewProvider(goose.DialectSQLite3, db, sub, goose.WithAllowOutofOrder(true))
 	if err != nil {
 		return fmt.Errorf("benchdb: goose provider: %w", err)
 	}
