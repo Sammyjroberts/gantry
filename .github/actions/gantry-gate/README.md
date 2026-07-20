@@ -37,7 +37,7 @@ See [`../../workflows/eval-gate.yml`](../../workflows/eval-gate.yml) for a runna
 | input | required | default | notes |
 |---|---|---|---|
 | `endpoint` | yes | — | Bench or Cloud base URL |
-| `token` | no | `""` | Scoped token; `eval:run` to score, add `eval:release` to promote |
+| `token` | no | `""` | Scoped token; `operate` to score, add `admin` to promote |
 | `suite` | yes | — | Suite id to gate |
 | `candidate` | yes | — | Candidate subject digest/ref |
 | `baseline` | no | `latest` | Baseline ref to compare against |
@@ -46,8 +46,11 @@ See [`../../workflows/eval-gate.yml`](../../workflows/eval-gate.yml) for a runna
 
 ## Tokens
 
-The token is a `TokenService` credential. Scope it `eval:run` for PRs (score only) and add
-`eval:release` only on the protected branch so a PR can never promote a baseline.
+The token is a `TokenService` credential with one of the bench's scopes
+(`ingest`/`read`/`operate`/`verify`/`admin`). Scope it `operate` for PRs (start runs, drive
+trials, evaluate the gate) and add `admin` only on the protected branch so a PR can never
+promote a baseline. A bring-your-own **verifier** instead uses the least-privilege `verify`
+scope — it can submit verdicts but not drive hardware or promote.
 
 ## External consumers
 
