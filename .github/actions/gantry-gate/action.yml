@@ -9,7 +9,7 @@ inputs:
     description: Bench or Cloud base URL (e.g. https://gantry.example.com)
     required: true
   token:
-    description: Scoped TokenService token (eval:run; add eval:release to promote)
+    description: Scoped TokenService token (operate to score; add admin to promote)
     required: false
     default: ""
   suite:
