@@ -1,0 +1,28 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "stations",
+    srcs = [
+        "handler.go",
+        "selector.go",
+        "service.go",
+        "store.go",
+    ],
+    importpath = "github.com/Sammyjroberts/gantry/core/go/stations",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//gen/go/gantry/v1:gantry",
+        "//gen/go/gantry/v1/gantryv1connect",
+        "@com_connectrpc_connect//:connect",
+    ],
+)
+
+go_test(
+    name = "stations_test",
+    srcs = ["stations_test.go"],
+    deps = [
+        ":stations",
+        "//core/go/benchdb",
+        "//gen/go/gantry/v1:gantry",
+    ],
+)

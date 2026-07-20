@@ -13,6 +13,7 @@ go_library(
         "migrations/0007_sources.sql",
         "migrations/0006_eval.sql",
         "migrations/0007_eval_gating.sql",
+        "migrations/0008_stations.sql",
     ],
     importpath = "github.com/Sammyjroberts/gantry/core/go/benchdb",
     visibility = ["//visibility:public"],
