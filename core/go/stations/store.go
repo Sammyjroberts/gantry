@@ -6,12 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	gantryv1 "github.com/Sammyjroberts/gantry/gen/go/gantry/v1"
 )
 
-// ErrNotFound is returned when a station or lease id does not exist.
-var ErrNotFound = errors.New("station entity not found")
+// ErrNotFound is returned when a station or lease id does not exist. ErrTaken is
+// returned by GrantLease when a station already holds an active lease.
+var (
+	ErrNotFound = errors.New("station entity not found")
+	ErrTaken    = errors.New("station already leased")
+)
 
 // Store is the persistence layer for stations and leases over the Bench SQLite
 // database. Availability is not stored — it is derived by Service at read time.
@@ -82,16 +87,52 @@ func (s *Store) ListStations(ctx context.Context) ([]*gantryv1.Station, error) {
 	return out, rows.Err()
 }
 
-// InsertLease writes a lease row.
-func (s *Store) InsertLease(ctx context.Context, l *gantryv1.Lease, idempotencyKey string) error {
-	_, err := s.db.ExecContext(ctx,
+// GrantLease atomically reserves a station: within a transaction it releases any
+// expired lease on the station, then inserts the new lease under the active-lease
+// unique index. If the station already holds an active lease the insert violates
+// the index and GrantLease returns ErrTaken — so concurrent grabbers serialize at
+// the database instead of relying on an app-level check (finding #1).
+func (s *Store) GrantLease(ctx context.Context, l *gantryv1.Lease, idempotencyKey string, nowNs uint64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("stations: begin grant: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE station_leases SET released = 1 WHERE station_id = ? AND released = 0 AND expires_ns <= ?`,
+		l.StationId, int64(nowNs)); err != nil {
+		return fmt.Errorf("stations: reap expired: %w", err)
+	}
+	_, err = tx.ExecContext(ctx,
 		`INSERT INTO station_leases (id, station_id, holder, reason, acquired_ns, expires_ns, released, idempotency_key)
 		 VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
 		l.Id, l.StationId, l.Holder, l.Reason, int64(l.AcquiredNs), int64(l.ExpiresNs), idempotencyKey)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return ErrTaken
+		}
 		return fmt.Errorf("stations: insert lease: %w", err)
 	}
+	if err := tx.Commit(); err != nil {
+		if isUniqueViolation(err) {
+			return ErrTaken
+		}
+		return fmt.Errorf("stations: commit grant: %w", err)
+	}
 	return nil
+}
+
+// isUniqueViolation reports whether err is a SQL unique-constraint violation
+// (modernc SQLite and lib/pq both surface a recognisable message).
+func isUniqueViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "UNIQUE constraint failed") ||
+		strings.Contains(msg, "constraint failed: UNIQUE") ||
+		strings.Contains(msg, "duplicate key value")
 }
 
 // ActiveLease returns the current active lease for a station (released = 0 and
@@ -112,11 +153,14 @@ func (s *Store) ActiveLease(ctx context.Context, stationID string, nowNs uint64)
 	return l, nil
 }
 
-// LeasesByIdempotencyKey returns the leases created under a key (any state).
-func (s *Store) LeasesByIdempotencyKey(ctx context.Context, key string) ([]*gantryv1.Lease, error) {
+// ActiveLeasesByIdempotencyKey returns the still-active leases created under a
+// key (released = 0, not expired). A rolled-back or expired prior attempt is not
+// returned, so a retry re-leases cleanly instead of adopting a dead reservation.
+func (s *Store) ActiveLeasesByIdempotencyKey(ctx context.Context, key string, nowNs uint64) ([]*gantryv1.Lease, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, station_id, holder, reason, acquired_ns, expires_ns
-		 FROM station_leases WHERE idempotency_key = ? ORDER BY station_id`, key)
+		 FROM station_leases WHERE idempotency_key = ? AND released = 0 AND expires_ns > ?
+		 ORDER BY station_id`, key, int64(nowNs))
 	if err != nil {
 		return nil, fmt.Errorf("stations: leases by idem: %w", err)
 	}
@@ -147,10 +191,13 @@ func (s *Store) GetLease(ctx context.Context, id string) (*gantryv1.Lease, error
 	return l, nil
 }
 
-// RenewLease extends an active lease's expiry.
-func (s *Store) RenewLease(ctx context.Context, id string, expiresNs uint64) error {
+// RenewLease extends a still-active lease's expiry. It refuses to renew a lease
+// that is already released or expired at nowNs (finding #8: renewing an expired
+// lease could resurrect a reservation another holder may already have taken).
+func (s *Store) RenewLease(ctx context.Context, id string, expiresNs, nowNs uint64) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE station_leases SET expires_ns = ? WHERE id = ? AND released = 0`, int64(expiresNs), id)
+		`UPDATE station_leases SET expires_ns = ? WHERE id = ? AND released = 0 AND expires_ns > ?`,
+		int64(expiresNs), id, int64(nowNs))
 	if err != nil {
 		return fmt.Errorf("stations: renew lease: %w", err)
 	}

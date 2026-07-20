@@ -28,6 +28,11 @@ CREATE TABLE station_leases (
 );
 CREATE INDEX idx_station_leases_station ON station_leases (station_id);
 CREATE UNIQUE INDEX idx_station_leases_idem ON station_leases (idempotency_key) WHERE idempotency_key <> '';
+-- The exclusivity invariant lives in the schema, not app code: at most one
+-- un-released lease per station. A grant releases expired leases first, then
+-- inserts under this index — so concurrent grabbers serialize at the DB (one
+-- wins, the rest hit a unique violation) on SQLite and Postgres alike.
+CREATE UNIQUE INDEX idx_station_leases_active ON station_leases (station_id) WHERE released = 0;
 
 -- +goose Down
 DROP INDEX idx_station_leases_idem;
