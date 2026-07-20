@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -130,6 +131,55 @@ func TestLeaseExpiryFreesStation(t *testing.T) {
 	chk, _ := svc.CheckTarget(ctx, "arm=so101", 1)
 	if !chk.Ok || chk.Free != 1 {
 		t.Fatalf("expired lease should free the station: %+v", chk)
+	}
+}
+
+func TestLeaseExclusiveUnderConcurrency(t *testing.T) {
+	// Regression for finding #1: N callers racing for one free station must yield
+	// exactly one active lease — the DB unique index, not an app check, enforces it.
+	ctx := context.Background()
+	svc, _ := newSvc(t)
+	register(t, svc, "cell-01", map[string]string{"arm": "so101"})
+
+	const n = 20
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	wins := 0
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			leases, _, err := svc.Lease(ctx, "arm=so101", 1, "h", "", 0, "")
+			if err == nil && len(leases) == 1 {
+				mu.Lock()
+				wins++
+				mu.Unlock()
+			} else if err != nil && !errors.Is(err, stations.ErrUnavailable) {
+				t.Errorf("unexpected lease error: %v", err)
+			}
+		}()
+	}
+	wg.Wait()
+	if wins != 1 {
+		t.Fatalf("exactly one caller should win the station, got %d", wins)
+	}
+	if chk, _ := svc.CheckTarget(ctx, "arm=so101", 1); chk.Free != 0 {
+		t.Fatalf("station should be taken after the storm: %+v", chk)
+	}
+}
+
+func TestRenewRefusesExpiredLease(t *testing.T) {
+	// Regression for finding #8.
+	ctx := context.Background()
+	svc, clk := newSvc(t)
+	register(t, svc, "cell-01", map[string]string{"arm": "so101"})
+	leases, _, err := svc.Lease(ctx, "arm=so101", 1, "h", "", 1, "") // 1s TTL
+	if err != nil {
+		t.Fatalf("Lease: %v", err)
+	}
+	clk.advance(2 * time.Second) // lease now expired
+	if _, err := svc.Renew(ctx, leases[0].Id, 600); err == nil {
+		t.Fatal("renewing an expired lease must fail, not resurrect it")
 	}
 }
 

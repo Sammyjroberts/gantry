@@ -146,8 +146,9 @@ func (s *Service) Lease(ctx context.Context, selector string, replicas uint32, h
 	if replicas == 0 {
 		replicas = 1
 	}
+	nowNs := uint64(s.now().UnixNano())
 	if idempotencyKey != "" {
-		if existing, err := s.store.LeasesByIdempotencyKey(ctx, idempotencyKey); err == nil && len(existing) > 0 {
+		if existing, err := s.store.ActiveLeasesByIdempotencyKey(ctx, idempotencyKey, nowNs); err == nil && len(existing) > 0 {
 			return existing, s.stationsFor(ctx, existing), nil
 		} else if err != nil {
 			return nil, nil, err
@@ -157,7 +158,7 @@ func (s *Service) Lease(ctx context.Context, selector string, replicas uint32, h
 	if err != nil {
 		return nil, nil, err
 	}
-	// Deterministic pick order (by id) among free+online stations.
+	// Deterministic pick order (by id) among free+online candidates.
 	free := make([]*gantryv1.Station, 0, len(list))
 	for _, st := range list {
 		if st.Availability == gantryv1.Availability_AVAILABILITY_ONLINE && st.Lease == nil {
@@ -165,9 +166,6 @@ func (s *Service) Lease(ctx context.Context, selector string, replicas uint32, h
 		}
 	}
 	sort.Slice(free, func(i, j int) bool { return free[i].Id < free[j].Id })
-	if uint32(len(free)) < replicas {
-		return nil, nil, fmt.Errorf("%w: %d free, need %d (selector %q)", ErrUnavailable, len(free), replicas, selector)
-	}
 
 	ttl := s.defaultTTL
 	if ttlSeconds > 0 {
@@ -177,33 +175,40 @@ func (s *Service) Lease(ctx context.Context, selector string, replicas uint32, h
 	acquired := uint64(now.UnixNano())
 	expires := uint64(now.Add(ttl).UnixNano())
 
+	// Try to atomically grant each candidate; a station taken by a concurrent
+	// caller returns ErrTaken and is skipped. Walk ALL free candidates so a lost
+	// race is retried against another station, not fatal.
 	var leases []*gantryv1.Lease
 	var stationsOut []*gantryv1.Station
-	for i := uint32(0); i < replicas; i++ {
-		st := free[i]
-		// Guard against a race: re-check the station is still free before granting.
-		if _, err := s.store.ActiveLease(ctx, st.Id, acquired); err == nil {
-			continue
-		} else if !errors.Is(err, ErrNotFound) {
-			return nil, nil, err
+	for _, st := range free {
+		if uint32(len(leases)) >= replicas {
+			break
 		}
 		l := &gantryv1.Lease{
 			Id: mustID(), StationId: st.Id, Holder: holder, Reason: reason,
 			AcquiredNs: acquired, ExpiresNs: expires,
 		}
-		key := idempotencyKey
-		if i > 0 {
-			key = "" // only one row can carry the unique key
+		key := ""
+		if len(leases) == 0 {
+			key = idempotencyKey // only one row can carry the unique key
 		}
-		if err := s.store.InsertLease(ctx, l, key); err != nil {
+		switch err := s.store.GrantLease(ctx, l, key, acquired); {
+		case err == nil:
+			leases = append(leases, l)
+			st.Lease = l
+			stationsOut = append(stationsOut, st)
+		case errors.Is(err, ErrTaken):
+			continue
+		default:
 			return nil, nil, err
 		}
-		leases = append(leases, l)
-		st.Lease = l
-		stationsOut = append(stationsOut, st)
 	}
 	if uint32(len(leases)) < replicas {
-		return nil, nil, fmt.Errorf("%w: lost a race for %d stations", ErrUnavailable, replicas)
+		// Roll back a partial multi-station grant so we never strand stations.
+		for _, l := range leases {
+			_ = s.store.ReleaseLease(ctx, l.Id)
+		}
+		return nil, nil, fmt.Errorf("%w: leased %d of %d needed (selector %q)", ErrUnavailable, len(leases), replicas, selector)
 	}
 	return leases, stationsOut, nil
 }
@@ -217,8 +222,9 @@ func (s *Service) Renew(ctx context.Context, leaseID string, ttlSeconds uint32) 
 	if ttlSeconds > 0 {
 		ttl = time.Duration(ttlSeconds) * time.Second
 	}
-	expires := uint64(s.now().Add(ttl).UnixNano())
-	if err := s.store.RenewLease(ctx, leaseID, expires); err != nil {
+	now := s.now()
+	expires := uint64(now.Add(ttl).UnixNano())
+	if err := s.store.RenewLease(ctx, leaseID, expires, uint64(now.UnixNano())); err != nil {
 		return nil, err
 	}
 	l, err := s.store.GetLease(ctx, leaseID)
