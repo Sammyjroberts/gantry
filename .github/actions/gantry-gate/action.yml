@@ -1,0 +1,74 @@
+name: Gantry Gate
+description: >-
+  Run a Gantry eval release gate as a CI step. Evaluates a candidate against the
+  baseline on a bench/cloud endpoint and fails the job (non-zero exit) when the
+  gate does not pass, so a bench gate blocks a release like any other check.
+
+inputs:
+  endpoint:
+    description: Bench or Cloud base URL (e.g. https://gantry.example.com)
+    required: true
+  token:
+    description: Scoped TokenService token (eval:run; add eval:release to promote)
+    required: false
+    default: ""
+  suite:
+    description: Suite id to gate against
+    required: true
+  candidate:
+    description: Candidate subject digest/ref under test
+    required: true
+  baseline:
+    description: Baseline ref to compare against
+    required: false
+    default: latest
+  target:
+    description: Station tag selector (e.g. "arm=so101,camera=topdown")
+    required: false
+    default: ""
+  promote-on-pass:
+    description: Promote the candidate to baseline when the gate passes
+    required: false
+    default: "false"
+
+outputs:
+  passed:
+    description: "true when the gate passed, false otherwise"
+    value: ${{ steps.gate.outputs.passed }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+    - name: Build gantry CLI
+      shell: bash
+      run: go build -o "$RUNNER_TEMP/gantry" ./apps/cli/cmd/gantry
+    - id: gate
+      shell: bash
+      run: |
+        set +e
+        promote=""
+        [ "${{ inputs.promote-on-pass }}" = "true" ] && promote="--promote-on-pass"
+        "$RUNNER_TEMP/gantry" gate \
+          --endpoint "${{ inputs.endpoint }}" \
+          --token "${{ inputs.token }}" \
+          --suite "${{ inputs.suite }}" \
+          --candidate "${{ inputs.candidate }}" \
+          --baseline "${{ inputs.baseline }}" \
+          --target "${{ inputs.target }}" \
+          --idempotency-key "$GITHUB_RUN_ID" \
+          --report junit=gantry-gate.xml,md=gantry-gate.md,json=gantry-gate.json \
+          $promote | tee -a "$GITHUB_STEP_SUMMARY"
+        code=${PIPESTATUS[0]}
+        [ "$code" = "0" ] && echo "passed=true" >> "$GITHUB_OUTPUT" || echo "passed=false" >> "$GITHUB_OUTPUT"
+        exit "$code"
+    - if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: gantry-gate-report
+        path: |
+          gantry-gate.xml
+          gantry-gate.json
+        if-no-files-found: ignore

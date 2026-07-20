@@ -1,0 +1,37 @@
+# Template: run a Gantry eval release gate in CI.
+#
+# Manual-trigger only (workflow_dispatch) so it never blocks this repo's normal
+# CI. To use it for real, copy this into your pipeline, set the GANTRY_ENDPOINT /
+# GANTRY_TOKEN secrets, and switch the trigger to `pull_request` (score on PRs)
+# — keeping promote-on-pass gated to the protected branch so only main advances
+# the baseline (see RFC 0001 §13).
+name: Eval Release Gate (template)
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Suite id to gate
+        required: true
+      candidate:
+        description: Candidate subject digest/ref
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gantry release gate
+        uses: ./.github/actions/gantry-gate
+        with:
+          endpoint: ${{ secrets.GANTRY_ENDPOINT }}
+          token: ${{ secrets.GANTRY_TOKEN }}
+          suite: ${{ inputs.suite }}
+          candidate: ${{ inputs.candidate }}
+          target: arm=so101,camera=topdown
+          # Only the protected branch is allowed to promote the champion.
+          promote-on-pass: ${{ github.ref == 'refs/heads/main' }}
