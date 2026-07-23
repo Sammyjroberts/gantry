@@ -18,6 +18,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	gantryv1 "github.com/Sammyjroberts/gantry/gen/go/gantry/v1"
@@ -53,6 +54,16 @@ type Service struct {
 
 // Option configures a Service.
 type Option func(*Service)
+
+// WithClock overrides the wall clock (tests): all server-stamped timestamps —
+// including a baseline's promoted_ns — are drawn from it.
+func WithClock(now func() time.Time) Option {
+	return func(sv *Service) {
+		if now != nil {
+			sv.now = now
+		}
+	}
+}
 
 // WithSampler wires a telemetry Sampler so trials can be auto-scored on close by
 // a suite's telemetry verifier. A nil sampler is ignored (auto-scoring stays
@@ -351,11 +362,8 @@ func (s *Service) EvaluateGate(ctx context.Context, runID string) (*gantryv1.Gat
 		}
 		baseline = nil
 	}
-	minScored := 0
-	for _, sc := range suite.Scenarios {
-		minScored += int(sc.MinScored)
-	}
-	res, err := evaluateGate(m, baseline, suite.GateJson, minScored)
+	adequate, adequacyDetail := scenarioAdequacy(suite.Scenarios, trials, m)
+	res, err := evaluateGate(m, baseline, suite.GateJson, adequate, adequacyDetail)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +415,11 @@ func (s *Service) PromoteBaseline(ctx context.Context, runID, idempotencyKey str
 		return nil, err
 	}
 	_ = idempotencyKey // natural idempotency via from_run_id
-	return b, nil
+	// The upsert is a monotonic CAS: a concurrent, newer promotion may already
+	// own the champion, in which case our write was a no-op. Return the champion
+	// the DB actually holds, not our local candidate, so callers never see a
+	// promotion they didn't win (finding #7).
+	return s.store.GetBaseline(ctx, run.SuiteId, run.StationClass)
 }
 
 // GetBaseline returns the champion for a (suite, class), or ErrNotFound.
@@ -419,6 +431,47 @@ func (s *Service) GetBaseline(ctx context.Context, suiteID, class string) (*gant
 }
 
 // ---- helpers ----
+
+// scenarioAdequacy decides whether a run has enough scored trials for a rate
+// decision, evaluated PER SCENARIO (finding #9b). Each scenario with a positive
+// min_scored must independently reach it; a run-wide sum would let one healthy
+// scenario mask a starved one. When a suite declares no per-scenario minimum at
+// all, we fall back to requiring at least one scored trial run-wide so an empty
+// run still cannot bootstrap a champion (finding #2). It returns whether the run
+// is adequate and, when not, a detail naming the under-powered scenarios.
+func scenarioAdequacy(scenarios []*gantryv1.Scenario, trials []*gantryv1.Trial, m runMetrics) (bool, string) {
+	scoredBy := map[string]int{}
+	for _, t := range trials {
+		if t.Outcome == nil {
+			continue
+		}
+		switch t.Outcome.Disposition {
+		case gantryv1.Disposition_DISPOSITION_PASS, gantryv1.Disposition_DISPOSITION_FAIL:
+			scoredBy[t.ScenarioId]++
+		}
+	}
+	totalMin := 0
+	var starved []string
+	for _, sc := range scenarios {
+		if sc.MinScored == 0 {
+			continue
+		}
+		totalMin += int(sc.MinScored)
+		if got := scoredBy[sc.Id]; got < int(sc.MinScored) {
+			starved = append(starved, fmt.Sprintf("%s %d<%d", sc.Id, got, sc.MinScored))
+		}
+	}
+	if totalMin == 0 {
+		if m.scored() > 0 {
+			return true, ""
+		}
+		return false, fmt.Sprintf("%d scored, need > 0", m.scored())
+	}
+	if len(starved) > 0 {
+		return false, "under-powered scenarios: " + strings.Join(starved, ", ")
+	}
+	return true, ""
+}
 
 // cloneSuite copies the fields the service owns, so callers' inputs are never
 // mutated and stray server-managed fields are re-derived.

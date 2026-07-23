@@ -487,7 +487,14 @@ func (s *Store) SetRunGate(ctx context.Context, runID string, gate *gantryv1.Gat
 	return affectedOrNotFound(res)
 }
 
-// UpsertBaseline sets the champion for a (suite_id, station_class).
+// UpsertBaseline sets the champion for a (suite_id, station_class) under a
+// monotonic compare-and-swap: the conflicting update only applies when the
+// incoming promotion is strictly newer (promoted_ns) than the stored one. This
+// makes concurrent promotions deterministic at the DB — the latest-timestamped
+// promote wins regardless of write scheduling, so an out-of-order promote can
+// never clobber a newer champion (finding #7). The invariant lives in SQL so it
+// holds on Postgres (real parallelism) the same as on SQLite. Portable across
+// both (ON CONFLICT ... DO UPDATE ... WHERE).
 func (s *Store) UpsertBaseline(ctx context.Context, b *gantryv1.Baseline) error {
 	subjectJSON, err := marshalMsg(b.Subject)
 	if err != nil {
@@ -498,7 +505,8 @@ func (s *Store) UpsertBaseline(ctx context.Context, b *gantryv1.Baseline) error 
 		 VALUES (?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(suite_id, station_class) DO UPDATE SET
 		   subject_json=excluded.subject_json, from_run_id=excluded.from_run_id,
-		   success_rate=excluded.success_rate, promoted_ns=excluded.promoted_ns`,
+		   success_rate=excluded.success_rate, promoted_ns=excluded.promoted_ns
+		 WHERE eval_baselines.promoted_ns < excluded.promoted_ns`,
 		b.SuiteId, b.StationClass, subjectJSON, b.FromRunId, b.SuccessRate, int64(b.PromotedNs))
 	if err != nil {
 		return fmt.Errorf("eval: upsert baseline: %w", err)

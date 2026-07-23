@@ -25,11 +25,13 @@ type gateSpec struct {
 var defaultGate = []gateSpec{{Metric: "success_rate", Op: "non_inferior", Margin: 0.03, Confidence: 0.95}}
 
 // evaluateGate compares a run's metrics against a baseline under the suite gate
-// policy. minScored is the minimum PASS+FAIL required for a rate decision; below
-// it the gate is inconclusive (treated as fail in CI). A nil baseline means no
-// champion yet (bootstrap): baseline-relative checks pass with a noted reason so
-// the first qualifying candidate can seed the baseline via PromoteBaseline.
-func evaluateGate(m runMetrics, baseline *gantryv1.Baseline, gateJSON string, minScored int) (*gantryv1.GateResult, error) {
+// policy. adequate reports whether the run has enough scored trials for a rate
+// decision (computed per-scenario by the caller — see finding #9b); when false,
+// adequacyDetail explains which scenarios are under-powered and the rate gate is
+// inconclusive (treated as fail in CI). A nil baseline means no champion yet
+// (bootstrap): baseline-relative checks pass with a noted reason so the first
+// qualifying candidate can seed the baseline via PromoteBaseline.
+func evaluateGate(m runMetrics, baseline *gantryv1.Baseline, gateJSON string, adequate bool, adequacyDetail string) (*gantryv1.GateResult, error) {
 	specs, err := parseGateSpecs(gateJSON)
 	if err != nil {
 		return nil, err
@@ -44,7 +46,7 @@ func evaluateGate(m runMetrics, baseline *gantryv1.Baseline, gateJSON string, mi
 	}
 	passed, inconclusive := true, false
 	for _, spec := range specs {
-		gc, inc := evalGateCheck(spec, m, baseline, minScored)
+		gc, inc := evalGateCheck(spec, m, baseline, adequate, adequacyDetail)
 		res.Checks = append(res.Checks, gc)
 		if !gc.Passed {
 			passed = false
@@ -62,7 +64,7 @@ func evaluateGate(m runMetrics, baseline *gantryv1.Baseline, gateJSON string, mi
 // inconclusive means the check could not be decided on adequate data (too few
 // trials) — the caller treats that as a fail in CI but distinguishes it from a
 // genuine regression.
-func evalGateCheck(spec gateSpec, m runMetrics, baseline *gantryv1.Baseline, minScored int) (*gantryv1.GateCheck, bool) {
+func evalGateCheck(spec gateSpec, m runMetrics, baseline *gantryv1.Baseline, adequate bool, adequacyDetail string) (*gantryv1.GateCheck, bool) {
 	cand, ok := m.Values[spec.Metric]
 	gc := &gantryv1.GateCheck{Metric: spec.Metric, CandidateValue: cand, Op: spec.Op, Margin: spec.Margin}
 	if !ok {
@@ -88,10 +90,12 @@ func evalGateCheck(spec gateSpec, m runMetrics, baseline *gantryv1.Baseline, min
 			return gc, false
 		}
 		// A rate decision — bootstrap or comparison — is only sound with enough
-		// scored trials. Guard BEFORE the bootstrap short-circuit so a thin/empty
-		// first run cannot seed a degenerate champion (finding #2).
-		if m.scored() < minScored {
-			gc.Detail = fmt.Sprintf("inconclusive: %d scored < %d required", m.scored(), minScored)
+		// scored trials, measured PER SCENARIO (finding #9b): one healthy and one
+		// starved scenario must not be declared conclusive by a run-wide sum. Guard
+		// BEFORE the bootstrap short-circuit so a thin/empty first run cannot seed a
+		// degenerate champion (finding #2).
+		if !adequate {
+			gc.Detail = "inconclusive: " + adequacyDetail
 			return gc, true
 		}
 		if baseline == nil {
