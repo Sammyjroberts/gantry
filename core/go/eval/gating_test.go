@@ -4,7 +4,9 @@ import (
 	"context"
 	"math"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Sammyjroberts/gantry/core/go/benchdb"
 	"github.com/Sammyjroberts/gantry/core/go/experiments"
@@ -293,5 +295,179 @@ func TestGateInconclusiveBelowMinScored(t *testing.T) {
 	}
 	if !res.Inconclusive || res.Passed {
 		t.Fatalf("want inconclusive+not-passed, got %+v", res)
+	}
+}
+
+func TestGatePerScenarioMinScored(t *testing.T) {
+	// Regression for finding #9b: adequacy is PER SCENARIO. Over-scoring one
+	// scenario must not paper over a starved one — even when the run-wide scored
+	// count meets the summed minimum, the run is inconclusive.
+	ctx := context.Background()
+	svc := newGatingSvc(t)
+	suite, err := svc.UpsertSuite(ctx, &gantryv1.Suite{
+		Name: "two-scenario",
+		Scenarios: []*gantryv1.Scenario{
+			{Id: "easy", Name: "easy", TrialBudget: 10, MinScored: 5},
+			{Id: "hard", Name: "hard", TrialBudget: 10, MinScored: 5},
+		},
+	})
+	if err != nil {
+		t.Fatalf("UpsertSuite: %v", err)
+	}
+	run, err := svc.StartRun(ctx, suite.Id, &gantryv1.Subject{Digest: "d"}, "", "", 1, "")
+	if err != nil {
+		t.Fatalf("StartRun: %v", err)
+	}
+	open := func(scenario string, n int) {
+		for i := 0; i < n; i++ {
+			tr, err := svc.OpenTrial(ctx, run.Id, scenario, uint32(i), "", uint64(i))
+			if err != nil {
+				t.Fatalf("OpenTrial: %v", err)
+			}
+			if _, err := svc.SubmitVerdict(ctx, tr.Id, &gantryv1.Verdict{
+				VerifierId: "t", VerifierVersion: "1",
+				Checks: []*gantryv1.Check{check("ok", gantryv1.Phase_PHASE_OUTCOME, true, true)},
+			}); err != nil {
+				t.Fatalf("SubmitVerdict: %v", err)
+			}
+			if _, err := svc.CloseTrial(ctx, tr.Id, 0, nil); err != nil {
+				t.Fatalf("CloseTrial: %v", err)
+			}
+		}
+	}
+	// 9 on "easy" + 1 on "hard" = 10 scored run-wide (meets the summed min of 10,
+	// which the old run-wide check would wave through) — but "hard" has only 1 of
+	// its required 5, so the run must be inconclusive.
+	open("easy", 9)
+	open("hard", 1)
+	res, err := svc.EvaluateGate(ctx, run.Id)
+	if err != nil {
+		t.Fatalf("EvaluateGate: %v", err)
+	}
+	if res.Passed || !res.Inconclusive {
+		t.Fatalf("a starved scenario must make the run inconclusive: %+v", res)
+	}
+}
+
+func TestVoidRateComputedAndGateable(t *testing.T) {
+	// Regression for finding #9a: void_rate is an emitted, gateable metric. A
+	// flaky bench (many VOIDs) fails a void_rate ceiling even though the
+	// success_rate among the trials that DID score is a perfect 1.0.
+	ctx := context.Background()
+	svc := newGatingSvc(t)
+	suite, err := svc.UpsertSuite(ctx, &gantryv1.Suite{
+		Name:      "void-guard",
+		GateJson:  `[{"metric":"void_rate","op":"<=","margin":0.25}]`,
+		Scenarios: []*gantryv1.Scenario{{Id: "s1", TrialBudget: 10, MinScored: 1}},
+	})
+	if err != nil {
+		t.Fatalf("UpsertSuite: %v", err)
+	}
+	run, err := svc.StartRun(ctx, suite.Id, &gantryv1.Subject{Digest: "d"}, "", "", 1, "")
+	if err != nil {
+		t.Fatalf("StartRun: %v", err)
+	}
+	mk := func(i int, void bool) {
+		tr, err := svc.OpenTrial(ctx, run.Id, "s1", uint32(i), "", uint64(i))
+		if err != nil {
+			t.Fatalf("OpenTrial: %v", err)
+		}
+		checks := []*gantryv1.Check{check("ok", gantryv1.Phase_PHASE_OUTCOME, true, true)}
+		if void {
+			// A failed required precondition VOIDs the trial (staging mistake).
+			checks = []*gantryv1.Check{check("staged", gantryv1.Phase_PHASE_PRECONDITION, true, false)}
+		}
+		if _, err := svc.SubmitVerdict(ctx, tr.Id, &gantryv1.Verdict{
+			VerifierId: "t", VerifierVersion: "1", Checks: checks,
+		}); err != nil {
+			t.Fatalf("SubmitVerdict: %v", err)
+		}
+		if _, err := svc.CloseTrial(ctx, tr.Id, 0, nil); err != nil {
+			t.Fatalf("CloseTrial: %v", err)
+		}
+	}
+	// 3 PASS + 3 VOID → void_rate = 3/6 = 0.5 (> 0.25 ceiling); success_rate = 1.0.
+	for i := 0; i < 3; i++ {
+		mk(i, false)
+	}
+	for i := 3; i < 6; i++ {
+		mk(i, true)
+	}
+	res, err := svc.EvaluateGate(ctx, run.Id)
+	if err != nil {
+		t.Fatalf("EvaluateGate: %v", err)
+	}
+	if len(res.Checks) != 1 {
+		t.Fatalf("want one gate check, got %d", len(res.Checks))
+	}
+	if math.Abs(res.Checks[0].CandidateValue-0.5) > 1e-9 {
+		t.Fatalf("void_rate not computed/surfaced: candidate = %.4f, want 0.5 (%s)", res.Checks[0].CandidateValue, res.Checks[0].Detail)
+	}
+	if res.Passed {
+		t.Fatalf("void_rate 0.5 must fail a 0.25 ceiling: %s", res.Checks[0].Detail)
+	}
+}
+
+func TestPromoteBaselineConcurrentCAS(t *testing.T) {
+	// Regression for finding #7: two concurrently-passing runs must not let the
+	// older promotion clobber the newer one. Promotion is a DB compare-and-swap on
+	// promoted_ns, so the run with the later promote is the deterministic champion
+	// no matter how the writes interleave (last-write-wins would be flaky here).
+	ctx := context.Background()
+	db, err := benchdb.Open(ctx, filepath.Join(t.TempDir(), "bench.db"))
+	if err != nil {
+		t.Fatalf("benchdb.Open: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	exp := experiments.NewService(db)
+	svc := NewService(db, exp)
+
+	suite, err := svc.UpsertSuite(ctx, &gantryv1.Suite{
+		Name:      "cas",
+		Scenarios: []*gantryv1.Scenario{{Id: "s1", TrialBudget: 20, MinScored: 20}},
+	})
+	if err != nil {
+		t.Fatalf("UpsertSuite: %v", err)
+	}
+	// Both runs bootstrap-pass (we only gate here; no champion is promoted yet).
+	hiRun := scoreRun(t, svc, suite.Id, "sha:hi", 20, 20) // rate 1.0
+	if _, err := svc.EvaluateGate(ctx, hiRun.Id); err != nil {
+		t.Fatalf("gate hi: %v", err)
+	}
+	loRun := scoreRun(t, svc, suite.Id, "sha:lo", 18, 20) // rate 0.9
+	if _, err := svc.EvaluateGate(ctx, loRun.Id); err != nil {
+		t.Fatalf("gate lo: %v", err)
+	}
+
+	// hi's promote carries a strictly-newer promoted_ns, so hi must win the CAS.
+	hi := NewService(db, exp, WithClock(func() time.Time { return time.Unix(0, 2000) }))
+	lo := NewService(db, exp, WithClock(func() time.Time { return time.Unix(0, 1000) }))
+
+	const n = 20
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		promoter, runID := hi, hiRun.Id
+		if i%2 == 1 {
+			promoter, runID = lo, loRun.Id
+		}
+		wg.Add(1)
+		go func(p *Service, id string) {
+			defer wg.Done()
+			if _, err := p.PromoteBaseline(ctx, id, ""); err != nil {
+				t.Errorf("PromoteBaseline: %v", err)
+			}
+		}(promoter, runID)
+	}
+	wg.Wait()
+
+	champ, err := svc.GetBaseline(ctx, suite.Id, "")
+	if err != nil {
+		t.Fatalf("GetBaseline: %v", err)
+	}
+	if champ.FromRunId != hiRun.Id {
+		t.Fatalf("the newer promote must win the CAS: champion from %s, want hi run %s", champ.FromRunId, hiRun.Id)
+	}
+	if math.Abs(champ.SuccessRate-1.0) > 1e-9 {
+		t.Fatalf("champion rate = %.4f, want 1.0 (the hi run)", champ.SuccessRate)
 	}
 }
