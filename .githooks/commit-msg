@@ -13,7 +13,7 @@ msg_file="$1"
 header=$(grep -v '^#' "$msg_file" | sed -n '/./{p;q;}' | tr -d '\r')
 
 types='feat|fix|docs|refactor|perf|test|build|ci|chore'
-known_scopes='bench cloud web cli sdk proto core-go core-ts deploy bazel docs skills'
+known_scopes='bench cloud web cli sdk proto core-go core-ts deploy bazel docs skills examples'
 
 # --- Exemptions: never block these -----------------------------------------
 case "$header" in

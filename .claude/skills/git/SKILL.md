@@ -55,6 +55,7 @@ Use exactly one of these; never invent a scope silently — add it to this list 
 | `bazel` | Bazel/bzlmod wiring, BUILD files |
 | `docs` | `docs/` architecture + ADRs |
 | `skills` | `.claude/skills` |
+| `examples` | `examples/` (SO-101 kit, eval runners, adapters demos) |
 
 Multi-area change: pick the **dominant** scope, or omit the scope entirely
 (`feat: ...`). Do not chain scopes.
