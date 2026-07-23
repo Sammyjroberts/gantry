@@ -11,6 +11,7 @@ go_library(
         "live.pb.go",
         "query.pb.go",
         "source.pb.go",
+        "station.pb.go",
         "telemetry.pb.go",
         "workspace.pb.go",
     ],
