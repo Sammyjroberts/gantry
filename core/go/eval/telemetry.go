@@ -21,7 +21,7 @@ type Sampler interface {
 // `channel`.`col` over the trial window, then pass iff (value op threshold).
 type telemetryCheck struct {
 	Name      string  `json:"name"`
-	Phase     string  `json:"phase"`     // precondition | during | outcome
+	Phase     string  `json:"phase"` // precondition | during | outcome
 	Required  bool    `json:"required"`
 	Channel   string  `json:"channel"`
 	Col       string  `json:"col,omitempty"` // v_f64 (default) | v_i64 | v_bool
